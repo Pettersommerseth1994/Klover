@@ -524,8 +524,8 @@ const sel = (name, opts, cur, label) => `<span class="sel"><select data-f="${nam
 
 // ---------- Forside ----------
 async function home() {
-  document.title = 'Kløver – alt om norske selskaper';
-  const words = ['Alt', 'om', 'norske', 'selskaper,', 'enkelt', 'forklart.'];
+  document.title = 'Kløver – selskapsinnsikt du kan stole på';
+  const words = ['Selskapsinnsikt', 'du', 'kan', 'stole', 'på.'];
   V.innerHTML = `
   <section class="hero" aria-labelledby="h-hero"><canvas class="field" aria-hidden="true"></canvas>
     ${twinkles([[12, 24, 16, 0], [86, 18, 12, -2], [78, 72, 18, -4], [18, 76, 10, -1], [50, 12, 9, -3]])}
