@@ -525,13 +525,13 @@ const sel = (name, opts, cur, label) => `<span class="sel"><select data-f="${nam
 // ---------- Forside ----------
 async function home() {
   document.title = 'Kløver – alt om norske selskaper';
-  const words = ['Alt', 'om', 'norske', 'selskaper,', 'enkelt', 'forklart.'];
+  const words = ['Alt', 'om', 'norske', 'selskaper,', 'enkelt', 'forklart.'], br = 3; // linjeskift etter «selskaper,»
   V.innerHTML = `
   <section class="hero" aria-labelledby="h-hero"><canvas class="field" aria-hidden="true"></canvas>
     ${twinkles([[12, 24, 16, 0], [86, 18, 12, -2], [78, 72, 18, -4], [18, 76, 10, -1], [50, 12, 9, -3]])}
     <div class="wrap">
       <button class="eb glass-hi" type="button" data-scroll="#tl-prev"><span><b>Nytt:</b> Topplister for alle fylker</span><span class="eb-ar" aria-hidden="true">${ic('arrow')}</span></button>
-      <h1 class="h1" id="h-hero" aria-label="${words.join(' ')}">${words.map((w, i) => `<span class="w" aria-hidden="true"><span class="wi" style="--i:${i}">${w}</span></span>`).join(' ')}</h1>
+      <h1 class="h1" id="h-hero" aria-label="${words.join(' ')}">${words.map((w, i) => `<span class="w" aria-hidden="true"><span class="wi" style="--i:${i}">${w}</span></span>${i === br ? '<br>' : ''}`).join(' ')}</h1>
       <p class="lead">Søk blant alle norske virksomheter. Se regnskap, eiere og topplister – med forklaringer på det som er vanskelig.</p>
       <div id="hs"></div>
     </div>
