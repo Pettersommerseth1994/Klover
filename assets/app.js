@@ -815,17 +815,29 @@ function finTable(ys, si, cmp) {
   return { html: `<div class="tbl-wrap"><table class="fin${cmp ? '' : ' nocmp'}" style="--vw:${vw + 1}ch"><thead><tr><th scope="col">${unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kr'}</th>${cols.map(y => `<th scope="col" class="${y.i === si ? 'on' : ''}" data-yi="${y.i}" tabindex="0" aria-label="Velg ${y.y}">${y.y}</th>`).join('')}</tr></thead><tbody>${html}</tbody></table></div>`, unit };
 }
 
-// Regnskapstabellen skal aldri scrolle sidelengs. Blir den for bred, legges endringen under tallet,
-// og er det fortsatt for trangt (mobil), vises bare året som er valgt.
+// Regnskapstabellen skal aldri scrolle sidelengs. Blir den for bred, legges endringen under tallet.
+// Er det fortsatt for trangt (mobil), vises bare året som er valgt – og på de smaleste skjermene
+// legges endringen i tillegg under tallet.
 function fitFin() {
   const w = $('.tbl-wrap'), t = w && $('table.fin', w);
   if (!t) return;
-  for (const c of ['', 'fin-stack', 'fin-one']) {
+  for (const c of [[], ['fin-stack'], ['fin-one'], ['fin-one', 'fin-stack']]) {
     t.classList.remove('fin-stack', 'fin-one');
-    if (c) t.classList.add(c);
+    t.classList.add(...c);
     if (w.scrollWidth <= w.clientWidth + 1) break;
   }
 }
+// Sjekk på nytt når plassen eller selve tabellen endrer størrelse. Tabellen kan bli bredere etter at den
+// er tegnet, for eksempel når skriften Inter Tight er ferdig lastet første gang siden åpnes.
+let finRO = null, finRaf = 0;
+function watchFin() {
+  const tb = $('#tbl'), t = tb && $('table.fin', tb);
+  if (!t || !window.ResizeObserver) return;
+  finRO?.disconnect();
+  finRO = new ResizeObserver(() => { cancelAnimationFrame(finRaf); finRaf = requestAnimationFrame(fitFin); });
+  finRO.observe(tb); finRO.observe(t);
+}
+document.fonts?.addEventListener?.('loadingdone', () => fitFin());
 document.fonts?.ready.then(fitFin);
 
 const OWN_C = ['#EF7140', '#111', '#6b6f76', '#cfcfcf', '#9a9ea4', '#F7A27A'];
@@ -977,7 +989,7 @@ async function company(id) {
     }
     if ($('#chartbox')) {
       renderChart();
-      const t = finTable(ys, si, cmp); $('#tbl').innerHTML = t.html; unit = t.unit; setUnit(); fitFin();
+      const t = finTable(ys, si, cmp); $('#tbl').innerHTML = t.html; unit = t.unit; setUnit(); fitFin(); watchFin();
     }
   };
   // Grafen: nøkkeltall-meny til venstre og graf til høyre. På mobil ligger menyen over grafen og kan scrolles sidelengs.
@@ -1074,13 +1086,7 @@ async function company(id) {
   spy();
   let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(draw, 150); }, { signal: pageAC.signal });
   draw();
-  // Tilpass regnskapstabellen på nytt når plassen den har endrer bredde (også første gang siden får bredde)
-  const tb = $('#tbl');
-  if (tb && window.ResizeObserver) {
-    let tw = 0;
-    const ro = new ResizeObserver(([e]) => { const w = Math.round(e.contentRect.width); if (w !== tw) { tw = w; fitFin(); } });
-    ro.observe(tb); pageAC.signal.addEventListener('abort', () => ro.disconnect());
-  }
+  pageAC.signal.addEventListener('abort', () => finRO?.disconnect());
 }
 
 // ---------- Person og eiertre ----------
