@@ -6,7 +6,7 @@
   - Regnskapsbyråer i Oslo (regnskapsføring og bokføring 69.202) med ansatte
 
 Aksjonærregisteret (personopplysninger, bare lokalt) -> data/aksjonaerregister/lister/utbytte-<by>.json:
-  - Personer med adresse i en by og holdingselskapene deres (navnet inneholder HOLDING, personen eier minst 20 %).
+  - Personer med adresse i en by (postnumrene i kommunen) og holdingselskapene deres (navnet inneholder HOLDING, personen eier minst 20 %).
     Utbyttet er anslått fra regnskapet: årsresultat minus økningen i opptjent egenkapital.
 
 Bransjekodene er de nye (SN2025) som Enhetsregisteret bruker.
@@ -74,6 +74,23 @@ def open_lists(only=None):
     print(f"-> {OUT}")
 
 
+# Postnumre i kommunen. Poststedet alene holder ikke: mange i Bergen bor på Nesttun, Paradis eller i Fyllingsdalen,
+# og mange i Trondheim på Ranheim, Heimdal eller i Klæbu. Byer som ikke står her, matches på poststedet.
+POSTNR = {
+    "OSLO": [(1, 1299)],
+    "BERGEN": [(5003, 5199), (5221, 5268)],
+    "TRONDHEIM": [(7003, 7099), (7540, 7541)],
+}
+
+
+def in_city(post, by_up):
+    ranges = POSTNR.get(by_up)
+    if not ranges:
+        return by_up in post.upper()
+    nr = post[:4]
+    return nr.isdigit() and any(lo <= int(nr) <= hi for lo, hi in ranges)
+
+
 def dividends(by, csv_path):
     """Personer i byen som eier minst 20 % av et holdingselskap, og anslått utbytte til dem."""
     by_up, own, tot, names = by.upper(), {}, {}, {}
@@ -91,7 +108,7 @@ def dividends(by, csv_path):
             tot[org] = max(tot.get(org, 0), t)
             names[org] = sel
             fid, post = fid.strip(), post.strip()
-            if len(fid) == 4 and fid.isdigit() and by_up in post.upper():
+            if len(fid) == 4 and fid.isdigit() and in_city(post, by_up):
                 k = (org, navn.strip(), fid, post)
                 own[k] = own.get(k, 0) + a
     rows = [(k, a / tot[k[0]] * 100) for k, a in own.items() if tot.get(k[0]) and "HOLDING" in names[k[0]].upper()]
