@@ -33,7 +33,10 @@ const arrow = v => (v == null ? '' : `<span class="${v >= 0 ? 'up' : 'dn'}">${v 
 const fmtOrg = o => String(o).replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
 const fmtDate = d => (d ? d.slice(0, 10).split('-').reverse().join('.') : '');
 const UP = new Set(['AS', 'ASA', 'ANS', 'DA', 'SA', 'BA', 'NUF', 'KS', 'IKS', 'A/S', 'HF', 'IL', 'BKS']);
-const nice = n => String(n || '').toLowerCase().split(' ').map(w => (UP.has(w.toUpperCase()) || (w.length <= 4 && /^[^aeiouyæøå\d]+$/.test(w)) ? w.toUpperCase() : w.replace(/(^|[-/(])(\p{L})/gu, (m, a, b) => a + b.toUpperCase()))).join(' ');
+const SMALL = new Set(['og', 'i', 'av', 'for', 'på', 'til', 'med', 'fra', 'von', 'van', 'der', 'den', 'de', 'la', 'du']);
+// Pene navn fra STORE BOKSTAVER: «NÆRINGS- OG FISKERIDEPARTEMENTET» → «Nærings- og Fiskeridepartementet», «N.A.» beholdes
+const nice = n => String(n || '').toLowerCase().split(' ').map((w, i) => (UP.has(w.toUpperCase().replace(/,$/, '')) || (w.length <= 4 && /^[^aeiouyæøå\d]+$/.test(w)) || /^(\p{L}\.)+\p{L}?\.?,?$/u.test(w) ? w.toUpperCase()
+  : i > 0 && SMALL.has(w) ? w : w.replace(/(^|[-/(])(\p{L})/gu, (m, a, b) => a + b.toUpperCase()))).join(' ');
 const ini = n => String(n || '').replace(/\b(AS|ASA|A\/S)\b/gi, '').trim().split(/\s+/).filter(w => /^[\p{L}\d]/u.test(w)).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 const first = n => String(n).split(' ')[0];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -234,9 +237,115 @@ function groupUltimate(id) {
 }
 function buildTree(id, mult = 1, chain = [], seen = new Set([id])) {
   return holdingsOf(id).filter(e => !seen.has(e.selskap)).map(e => {
-    const m = mult * e.andel / 100, ch = [...chain, e];
-    return { id: e.selskap, andel: e.andel, eff: m * 100, chain: ch, kids: buildTree(e.selskap, m, ch, new Set([...seen, e.selskap])) };
+    const m = mult * e.andel / 100, name = E(e.selskap).navn, ch = [...chain, { selskap: e.selskap, andel: e.andel, name }];
+    return { id: e.selskap, name, andel: e.andel, eff: m * 100, chain: ch, kids: buildTree(e.selskap, m, ch, new Set([...seen, e.selskap])) };
   });
+}
+
+// ---------- Aksjonærregisteret (lokal indeks fra scripts/build_aksjonaerregister.py) ----------
+// Filene finnes bare lokalt (personopplysninger, ignorert av Git). Mangler de, brukes eksempeldataene.
+const REG = { meta: undefined, sh: new Map() };
+const regMeta = async () => (REG.meta === undefined ? (REG.meta = await getJSON('data/aksjonaerregister/meta.json')) : REG.meta);
+const regShard = (dir, name) => {
+  const k = `${dir}/${name}`;
+  if (!REG.sh.has(k)) REG.sh.set(k, getJSON(`data/aksjonaerregister/${dir}/${encodeURIComponent(name)}.json`).then(d => d || {}));
+  return REG.sh.get(k);
+};
+const isRegKey = k => /^[pf][0-9a-f]{10}$/.test(k);
+const regOwners = async org => (await regShard('eiere', org.slice(0, 4)))[org] || null;
+const regHold = async key => (await regShard('eierskap', /^\d/.test(key) ? 'c' + key.slice(0, 4) : key.slice(0, 4)))[key] || null;
+const normTok = s => String(s || '').toLowerCase().replace(/[^a-zæøåäöü0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+async function regSearchPeople(q, max = 6) {
+  const toks = normTok(q);
+  if (!toks.length || toks[0].length < 2 || !(await regMeta())) return [];
+  const rows = await regShard('navn', toks[0].slice(0, 2)), out = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    const nt = normTok(r[1]);
+    if (toks.every(t => nt.some(x => x.startsWith(t)))) { out.push(r); if (out.length >= max) break; }
+  }
+  return out;
+}
+const regPersonItem = r => ({ sec: 'Personer', href: `#/person/${r[0]}`, title: nice(r[1]), kind: 'pe',
+  sub: [r[2] && `f. ${r[2]}`, nice(r[3] || ''), `eier i ${r[4]} selskap${r[4] === 1 ? '' : 'er'}`].filter(Boolean).join(' · ') });
+const ownerHref = (t, id, org) => (t === 'c' && id !== org ? `#/selskap/${id}` : t === 'p' || t === 'f' ? `#/person/${id}` : '');
+async function examplePersonHref() {
+  const hit = (await regSearchPeople('Petter Sommerseth', 1))[0];
+  return hit ? `#/person/${hit[0]}` : '#/person/p-petter';
+}
+// Endelige eiere: følg eierkjeden oppover og gang andelene. Begrenset i dybde og antall oppslag.
+async function regUltimate(org) {
+  const res = [];
+  let budget = 80;
+  const walk = async (id, mult, via, seen, depth) => {
+    const rec = await regOwners(id);
+    if (!rec) return false;
+    for (const o of rec.o) {
+      const m = mult * o[6] / 100;
+      if (m < 0.0005) continue;
+      const self = o[1] === org, nm = self ? 'Egne aksjer' : nice(o[2]);
+      if (o[0] === 'c' && !self && !seen.has(o[1]) && depth < 6 && budget > 0) {
+        budget--;
+        if (await walk(o[1], m, [...via, nm], new Set([...seen, o[1]]), depth + 1)) continue;
+      }
+      res.push({ key: o[1], name: nm, type: self ? 'self' : o[0], pct: m * 100, via, href: ownerHref(o[0], o[1], org) });
+    }
+    if (depth === 0 && rec.x) res.push({ key: '_rest', name: `${nf.format(rec.x[0])} andre aksjonærer`, type: 'rest', pct: rec.x[1], via: [], href: '' });
+    return true;
+  };
+  await walk(org, 1, [], new Set([org]), 0);
+  const g = new Map();
+  for (const r of res) { const x = g.get(r.key) || { ...r, pct: 0, paths: [] }; x.pct += r.pct; x.paths.push({ pct: r.pct, via: [...r.via].reverse() }); g.set(r.key, x); }
+  return [...g.values()].sort((a, b) => (a.type === 'rest') - (b.type === 'rest') || b.pct - a.pct);
+}
+// Eiertre nedover fra en person eller et selskap
+async function regTree(key) {
+  let budget = 150;
+  const build = async (id, mult, chain, seen, depth) => {
+    const h = await regHold(id);
+    if (!h) return [];
+    const out = [];
+    for (const x of h.h) {
+      if (seen.has(x[0])) continue;
+      const m = mult * x[3] / 100, name = nice(x[1]), ch = [...chain, { selskap: x[0], andel: x[3], name }];
+      let kids = [];
+      if (depth < 6 && budget > 0) { budget--; kids = await build(x[0], m, ch, new Set([...seen, x[0]]), depth + 1); }
+      out.push({ id: x[0], name, andel: x[3], eff: m * 100, chain: ch, kids });
+    }
+    return out.sort((a, b) => b.eff - a.eff);
+  };
+  return build(key, 1, [], new Set([key]), 0);
+}
+// Felles eierstruktur for selskapssiden – ekte register lokalt, ellers eksempeldata
+async function ownership(id) {
+  if (!id.startsWith('d-') && await regMeta()) {
+    const [rec, hold] = await Promise.all([regOwners(id), regHold(id)]);
+    const base = { src: 'reg', year: REG.meta.år, prevYear: REG.meta.tidligere?.[0] };
+    if (!rec && !hold) return { ...base, none: true, direct: [], ult: [], holds: [] };
+    return { ...base, total: rec?.t, rest: rec?.x,
+      direct: (rec?.o || []).map(o => ({ type: o[1] === id ? 'self' : o[0], id: o[1], name: o[1] === id ? 'Egne aksjer' : nice(o[2]), yr: o[3], place: nice(o[4] || ''), shares: o[5], pct: o[6], prev: o[7], href: ownerHref(o[0], o[1], id) })),
+      ult: rec ? await regUltimate(id) : [],
+      holds: (hold?.h || []).map(h => ({ id: h[0], name: nice(h[1]), shares: h[2], pct: h[3], href: `#/selskap/${h[0]}` })), holdsN: hold?.n || 0 };
+  }
+  await loadOwn();
+  const ent = E(id), direct = ownersOf(id).sort((a, b) => b.andel - a.andel), holds = holdingsOf(id);
+  if (!direct.length && !holds.length) return { src: null, direct: [], ult: [], holds: [] };
+  return { src: 'demo',
+    direct: direct.map(e => ({ type: E(e.eier).type === 'person' ? 'p' : 'c', id: e.eier, name: E(e.eier).navn, shares: ent?.aksjer ? Math.round(ent.aksjer * e.andel / 100) : null, pct: e.andel, href: entHref(e.eier) })),
+    ult: groupUltimate(id).map(u => ({ key: u.person, name: E(u.person).navn, type: 'p', pct: u.pct, href: `#/person/${u.person}`, paths: u.paths.map(p => ({ pct: p.pct, via: p.chain.slice(0, -1).map(e => E(e.eier).navn).reverse() })) })),
+    holds: holds.map(e => ({ id: e.selskap, name: E(e.selskap).navn, pct: e.andel, href: `#/selskap/${e.selskap}` })), holdsN: holds.length };
+}
+// Kobler styremedlemmer og ledere til personsidene deres (navn + fødselsår)
+async function roleLinksFor(ro) {
+  const links = new Map();
+  if (!(await regMeta())) return links;
+  const ppl = (ro?.rollegrupper || []).flatMap(g => g.roller).filter(r => r.person && !r.fratraadt);
+  await Promise.all(ppl.map(async r => {
+    const n = [r.person.navn?.fornavn, r.person.navn?.mellomnavn, r.person.navn?.etternavn].filter(Boolean).join(' ');
+    const yr = r.person.fodselsdato?.slice(0, 4), want = normTok(n);
+    const hit = (await regSearchPeople(n, 40)).find(x => x[2] === yr && want.every(t => normTok(x[1]).includes(t)));
+    if (hit) links.set(n.toLowerCase(), `#/person/${hit[0]}`);
+  }));
+  return links;
 }
 function aggregate(nodes, map = new Map()) {
   for (const n of nodes) { const x = map.get(n.id) || { id: n.id, total: 0, paths: [] }; x.total += n.eff; x.paths.push(n); map.set(n.id, x); aggregate(n.kids, map); }
@@ -258,15 +367,18 @@ const EXAMPLES = [
   { href: '#/selskap/918298037', title: 'Proff AS', sub: 'Oslo', kind: 'co' },
 ];
 async function searchAll(q) {
-  await loadOwn();
-  const ql = q.toLowerCase(), out = [];
-  for (const [id, e] of Object.entries(OWN.enheter)) {
-    if (e.ekte || !e.navn.toLowerCase().includes(ql)) continue;
-    const pe = e.type === 'person';
-    out.push({ sec: pe ? 'Personer' : 'Eksempelselskaper', href: entHref(id), title: e.navn, kind: pe ? 'pe' : 'co', sub: pe ? `Eier i ${aggregate(buildTree(id)).size} selskaper · eksempeldata` : `Eksempelselskap · ${e.sted}` });
+  const ql = q.toLowerCase(), out = [], d = q.replace(/\s/g, '');
+  const brreg = api(/^\d{9}$/.test(d) ? `enhetsregisteret/api/enheter?organisasjonsnummer=${d}` : `enhetsregisteret/api/enheter?navn=${encodeURIComponent(q)}&size=7`);
+  if (await regMeta()) out.push(...(await regSearchPeople(q)).map(regPersonItem));
+  else {
+    await loadOwn();
+    for (const [id, e] of Object.entries(OWN.enheter)) {
+      if (e.ekte || !e.navn.toLowerCase().includes(ql)) continue;
+      const pe = e.type === 'person';
+      out.push({ sec: pe ? 'Personer' : 'Eksempelselskaper', href: entHref(id), title: e.navn, kind: pe ? 'pe' : 'co', sub: pe ? `Eier i ${aggregate(buildTree(id)).size} selskaper · eksempeldata` : `Eksempelselskap · ${e.sted}` });
+    }
   }
-  const d = q.replace(/\s/g, '');
-  const r = await api(/^\d{9}$/.test(d) ? `enhetsregisteret/api/enheter?organisasjonsnummer=${d}` : `enhetsregisteret/api/enheter?navn=${encodeURIComponent(q)}&size=7`);
+  const r = await brreg;
   const cos = (r?._embedded?.enheter || []).map(e => ({ sec: 'Selskaper', href: `#/selskap/${e.organisasjonsnummer}`, title: nice(e.navn), kind: 'co',
     sub: [fmtOrg(e.organisasjonsnummer), e.organisasjonsform?.kode, nice(e.forretningsadresse?.poststed || e.postadresse?.poststed || '')].filter(Boolean).join(' · ') }));
   return [...out.filter(x => x.kind === 'pe'), ...cos, ...out.filter(x => x.kind === 'co')];
@@ -286,9 +398,11 @@ function makeSearch({ mode = 'hero', placeholder = 'Søk etter selskap, organisa
     drop.hidden = false; inp.setAttribute('aria-expanded', 'true');
     if (act >= 0) { inp.setAttribute('aria-activedescendant', `${id}-${act}`); $(`#${id}-${act}`)?.scrollIntoView({ block: 'nearest' }); }
   };
-  const suggest = () => {
+  const suggest = async () => {
     const rc = recent.get().map(x => ({ ...x, sec: 'Nylig besøkt' }));
-    items = [...rc, ...EXAMPLES.filter(x => !rc.some(r => r.href === x.href)).map(x => ({ ...x, sec: 'Prøv' }))]; act = -1; render();
+    let ex = EXAMPLES;
+    if (await regMeta()) { const href = await examplePersonHref(); ex = EXAMPLES.map(x => (x.kind === 'pe' ? { ...x, href, sub: 'Eiertre fra aksjonærregisteret' } : x)); }
+    items = [...rc, ...ex.filter(x => !rc.some(r => r.href === x.href)).map(x => ({ ...x, sec: 'Prøv' }))]; act = -1; render();
   };
   const run = async () => {
     const q = inp.value.trim(), my = ++seq;
@@ -360,7 +474,7 @@ async function route() {
   else if (seg[0] === 'selskap' && seg[1]) await company(seg[1]);
   else if (seg[0] === 'person' && seg[1]) await person(seg[1]);
   else if (seg[0] === 'eiere') await owners();
-  else if (seg[0] === 'om') about();
+  else if (seg[0] === 'om') await about();
   else await home();
   reveal(V); onScroll();
 }
@@ -434,7 +548,7 @@ async function home() {
   <section class="sec"><div class="wrap feat">
     <div><div class="lab">Eiersøk</div><h2 class="h2 rv">Se hvem som <span style="color:var(--ac)">egentlig</span> eier.</h2>
       <p class="lead rv" style="margin-top:20px">Søk på en person og følg eierskapet gjennom holdingselskapene. Vi regner ut den reelle andelen for deg: eier du 50 % av et selskap som eier 50 % av et annet, eier du 25 %.</p>
-      <div class="rv" style="margin-top:28px;display:flex;gap:12px;flex-wrap:wrap"><a class="btn solid" href="#/person/p-petter">Se eksempelet ${ic('arrow')}</a><a class="btn ghost" href="#/eiere">Slik fungerer eiersøk</a></div></div>
+      <div class="rv" style="margin-top:28px;display:flex;gap:12px;flex-wrap:wrap"><a class="btn solid" href="#/person/p-petter" data-expl>Se eksempelet ${ic('arrow')}</a><a class="btn ghost" href="#/eiere">Slik fungerer eiersøk</a></div></div>
     <div class="feat-vis rv"><canvas aria-hidden="true"></canvas></div>
   </div></section>
   <section class="sec alt"><div class="wrap">
@@ -447,6 +561,7 @@ async function home() {
   </div></section>`;
   starField($('.hero .field'), { mode: 'breathe', sp: 12, mouse: false });
   constellation($('.feat-vis canvas'));
+  if (await regMeta()) { const b = $('[data-expl]'); if (b) b.href = await examplePersonHref(); }
   $('#hs').append(makeSearch({ mode: 'hero' }).el);
   $('[data-scroll]').addEventListener('click', () => $('#tl-prev').scrollIntoView({ behavior: 'smooth' }));
   api('enhetsregisteret/api/enheter?size=1').then(d => {
@@ -491,7 +606,7 @@ async function toplists(q) {
     <p class="sr" aria-live="polite" id="cnt"></p>
     <div class="rows glass" id="rows"></div>
     <div id="more" style="text-align:center;margin-top:16px"></div>
-    <p class="note">${ic('clock')} <span>Eksempelutvalg på ${nf.format(TOP.selskaper.length)} selskaper: de største og et utvalg mellomstore i hvert fylke, hentet ${fmtDate(TOP.generert)}. Utbytte er estimert som årsresultat minus endring i opptjent egenkapital.</span></p>
+    <p class="note">${ic('info')} <span>Topplistene bygger foreløpig på et utvalg på ${nf.format(TOP.selskaper.length)} selskaper – de største og et utvalg mellomstore i hvert fylke – ikke alle norske selskaper. Regnskapsregisteret har ingen nedlasting av alle regnskap, så hvert selskap må hentes for seg. Tallene ble hentet ${fmtDate(TOP.generert)}. Utbytte er estimert som årsresultat minus endring i opptjent egenkapital.</span></p>
   </div></div>`;
   starField($('.ph .field'), { mode: 'breathe', sp: 11 });
   const sync = () => {
@@ -576,7 +691,7 @@ function parseYears(rs) {
   return ys;
 }
 
-function facts(name, ys, ent, ro, ult) {
+function facts(name, ys, ent, ro, own) {
   const F = [], L = ys.at(-1), Pv = ys.at(-2), n = `<b>${esc(name)}</b>`;
   const add = (k, big, text, sm) => F.push({ k, big, text, sm });
   if (L) {
@@ -596,7 +711,10 @@ function facts(name, ys, ent, ro, ult) {
     if (L.varer > 0 && L.ass > 0) add('Varelager', pc(L.varer / L.ass * 100, 0), `Varelageret på <b>${kr(L.varer)}</b> utgjør ${pc(L.varer / L.ass * 100, 0)} av alle eiendelene.`);
     if (ys.length > 2) { const b = [...ys].sort((a, c) => (c.net ?? -1e15) - (a.net ?? -1e15))[0]; add('Rekordår', b.y, b.y === L.y ? `${L.y} er det <b>beste resultatåret</b> i perioden vi har tall for.` : `Beste årsresultat i perioden kom i <b>${b.y}</b> (${kr(b.net)}).`); }
   }
-  if (ult?.length) { const u = ult[0]; add('Største eier', pc(u.pct), `<b>${esc(E(u.person).navn)}</b> eier ${pc(u.pct)} totalt${u.paths.some(p => p.chain.length > 1) ? ', delvis via holdingselskap' : ''}. <span class="demo" style="margin-top:8px">Eksempeldata</span>`); }
+  const topU = own?.ult?.find(u => u.type !== 'rest');
+  if (topU) add('Største eier', pc(topU.pct), `<b>${esc(topU.name)}</b> eier ${pc(topU.pct)} totalt${topU.paths?.some(p => p.via.length) ? ', via holdingselskap' : ''}.${own.src === 'demo' ? ' <span class="demo" style="margin-top:8px">Eksempeldata</span>' : ''}`);
+  const nOwn = (own?.direct?.length || 0) + (own?.rest?.[0] || 0);
+  if (own?.src === 'reg' && nOwn > 1) add('Aksjonærer', nf.format(nOwn), `${n} hadde <b>${nf.format(nOwn)} aksjonærer</b> ved utgangen av ${own.year}.`);
   if (ent?.stiftelsesdato) {
     const days = Math.floor((Date.now() - new Date(ent.stiftelsesdato)) / 864e5);
     if (days < 730) add('Fersk', `${nf.format(days)} dager`, `${n} ble stiftet ${fmtDate(ent.stiftelsesdato)} – fortsatt i oppstartsfasen.`);
@@ -674,6 +792,9 @@ function finTable(ys, si, cmp) {
     if (Math.abs(d) < .05) return '<span class="cd">±0</span>';
     return `<span class="cd ${d > 0 ? 'up' : 'dn'}" aria-label="${d > 0 ? 'opp' : 'ned'} ${txt}">${d > 0 ? '▲' : '▼'} ${txt}</span>`;
   };
+  const fmt = (v, u) => (v == null ? '–' : u === '%' ? pc(v) : u === 'x' ? dec(v, 2) : nf.format(Math.round(v / unit)));
+  // Alle årskolonner får samme bredde: tallet får fast bredde (lengste tall i tabellen) og endringen fast plass ved siden av
+  const vw = Math.max(4, ...ROWS.filter(r => r[0] !== 'g').flatMap(([, key, , u]) => ys.map(y => fmt(y[key], u).length)));
   let html = '', grp = null;
   for (const [label, key, sum, u] of ROWS) {
     if (label === 'g') { grp = `${html ? `<tr class="gap" aria-hidden="true"><td colspan="${cols.length + 1}"></td></tr>` : ''}<tr class="grp"><td colspan="${cols.length + 1}">${key}</td></tr>`; continue; }
@@ -681,28 +802,45 @@ function finTable(ys, si, cmp) {
     if (grp) { html += grp; grp = null; }
     html += `<tr class="${sum ? 'sum' : ''}"><td><span class="rl">${label}${info(key, label)}</span></td>${cols.map(y => {
       const v = y[key], on = y.i === si;
-      const txt = v == null ? '–' : u === '%' ? pc(v) : u === 'x' ? dec(v, 2) : nf.format(Math.round(v / unit));
-      const d = y.i > 0 ? delta(v, ys[y.i - 1][key], u) : ''; // alltid med (unntatt eldste år), skjules med CSS
-      return `<td class="${on ? 'on' : ''}${v == null ? ' na' : ''}">${txt}${d}</td>`;
+      const d = y.i > 0 ? delta(v, ys[y.i - 1][key], u) : '<span class="cd"></span>'; // samme plass i alle kolonner, skjules med CSS
+      return `<td class="${on ? 'on' : ''}${v == null ? ' na' : ''}"><span class="cv">${fmt(v, u)}</span>${d}</td>`;
     }).join('')}</tr>`;
   }
-  return { html: `<div class="tbl-wrap"><table class="fin${cmp ? '' : ' nocmp'}"><thead><tr><th scope="col">${unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kr'}</th>${cols.map(y => `<th scope="col" class="${y.i === si ? 'on' : ''}" data-yi="${y.i}" tabindex="0" aria-label="Velg ${y.y}">${y.y}</th>`).join('')}</tr></thead><tbody>${html}</tbody></table></div>`, unit };
+  return { html: `<div class="tbl-wrap"><table class="fin${cmp ? '' : ' nocmp'}" style="--vw:${vw + 1}ch"><thead><tr><th scope="col">${unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kr'}</th>${cols.map(y => `<th scope="col" class="${y.i === si ? 'on' : ''}" data-yi="${y.i}" tabindex="0" aria-label="Velg ${y.y}">${y.y}</th>`).join('')}</tr></thead><tbody>${html}</tbody></table></div>`, unit };
 }
 
-const OWN_C = ['#EF7140', '#111', '#6b6f76', '#cfcfcf', '#9a9ea4'];
-function ownershipBlock(id, name) {
-  const direct = ownersOf(id), hold = holdingsOf(id);
-  const head = `<div class="block-h"><div><h2 class="h2">Hvem eier ${esc(name)}?</h2><p>Endelige eiere regnes ut gjennom alle ledd, også via holdingselskaper.</p></div>${direct.length || hold.length ? '<span class="demo">Eksempeldata</span>' : ''}</div>`;
-  if (!direct.length && !hold.length) return head + `<div class="glass card" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:240px"><b style="font-weight:500;font-size:18px">Eierdata er ikke koblet på ennå</b><p class="muted" style="margin-top:4px">Aksjonærregisteret hentes fra Skatteetaten som en årlig fil og må vurderes opp mot personvern før det vises.</p></div><a class="btn" href="#/selskap/935851076">Se eksempelet ${ic('arrow')}</a></div>`;
-  const ult = groupUltimate(id), ent = E(id);
-  const via = u => u.paths.map(p => (p.chain.length === 1 ? `${pc(p.pct)} direkte` : `${pc(p.pct)} via ${p.chain.slice(0, -1).map(e => esc(E(e.eier).navn)).reverse().join(' → ')}`)).join(' · ');
+const OWN_C = ['#EF7140', '#111', '#6b6f76', '#cfcfcf', '#9a9ea4', '#F7A27A'];
+const pcp = v => (v == null ? '–' : v < .01 ? '< 0,01 %' : pc(v, v < 1 ? 2 : 1));
+function ownershipBlock(own, name) {
+  const badge = own.src === 'reg' ? `<span class="src-tag">Aksjonærregisteret ${own.year}</span>` : own.src === 'demo' ? '<span class="demo">Eksempeldata</span>' : '';
+  const head = `<div class="block-h"><div><h2 class="h2">Hvem eier ${esc(name)}?</h2><p>${own.src === 'reg' ? `Per 31.12.${own.year}. ` : ''}Endelige eiere regnes ut gjennom alle ledd, også via holdingselskaper.</p></div>${badge}</div>`;
+  if (!own.src) return head + `<div class="glass card own-empty"><div><b>Eierdata er ikke koblet på her ennå</b><p class="muted">Aksjonærregisteret fra Skatteetaten er foreløpig bare tilgjengelig i den lokale versjonen.</p></div><a class="btn" href="#/selskap/935851076">Se eksempelet ${ic('arrow')}</a></div>`;
+  if (own.none) return head + `<div class="glass card own-empty"><div><b>Ikke i aksjonærregisteret</b><p class="muted">Registeret gjelder aksjeselskaper. ${esc(name)} har ingen registrerte aksjonærer for ${own.year}.</p></div></div>`;
+  const U = own.ult.filter(u => u.type !== 'rest'), rest = own.ult.find(u => u.type === 'rest');
+  const top = U.slice(0, 6), other = U.slice(6).reduce((s, u) => s + u.pct, 0) + (rest?.pct || 0);
+  const via = u => (u.paths || []).map(p => (p.via.length ? `${pcp(p.pct)} via ${p.via.map(esc).join(' → ')}` : `${pcp(p.pct)} direkte`)).join(' · ');
+  const kind = u => (u.type === 'f' ? 'Utenlandsk eier · ' : u.type === 'self' ? 'Selskapets egne aksjer · ' : u.type === 'c' ? 'Ingen eiere i registeret · ' : '');
+  const row = (u, i) => { const t = u.href ? 'a' : 'div';
+    return `<${t} class="lg-row" ${u.href ? `href="${u.href}"` : ''}><span class="sw" style="background:${OWN_C[i % OWN_C.length]}"></span><div><b>${esc(u.name)}</b><div class="via">${kind(u)}${via(u)}</div></div><span class="pc num">${pcp(u.pct)}</span></${t}>`; };
+  const chg = d => {
+    if (own.src !== 'reg' || !own.prevYear) return '';
+    if (d.prev == null) return `<span class="new">Ny i ${own.year}</span>`;
+    const x = d.pct - d.prev;
+    return Math.abs(x) < .05 ? '' : `<span class="${x > 0 ? 'up' : 'dn'}">${x > 0 ? '▲' : '▼'} ${dec(Math.abs(x), 1)} pp</span>`;
+  };
+  const sub = d => (d.type === 'p' ? [d.yr && `f. ${d.yr}`, d.place].filter(Boolean).join(' · ') : d.type === 'c' ? `Org.nr ${fmtOrg(d.id)}` : d.type === 'f' ? `Utenlandsk · ${esc(d.place)}` : d.type === 'self' ? 'Selskapets egne aksjer' : '');
+  const tr = d => `<tr ${d.href ? `data-href="${d.href}"` : ''}><td><span class="who"><span class="av ${d.type === 'p' ? 'pe' : ''}">${esc(ini(d.name))}</span><span><b>${esc(d.name)}</b><small>${sub(d)}</small></span></span></td><td class="sh num">${d.shares != null ? nf.format(d.shares) : ''}</td><td class="num">${pcp(d.pct)}</td><td class="ch">${chg(d)}</td></tr>`;
+  const list = (rows, n) => `<tbody>${rows.slice(0, n).map(tr).join('')}</tbody>${rows.length > n ? `<tbody class="more-own" hidden>${rows.slice(n).map(tr).join('')}</tbody>` : ''}`;
+  const more = (rows, n, total) => (rows.length > n ? `<button class="lnk" type="button" data-more-own data-label="Vis alle ${nf.format(total || rows.length)}" style="font-size:13px;margin-top:10px">Vis alle ${nf.format(total || rows.length)}</button>` : '');
+  const hdr = `<thead><tr><th>Eier</th><th class="sh">Aksjer</th><th>Andel</th><th class="ch">${own.src === 'reg' && own.prevYear ? `Fra ${own.prevYear}` : ''}</th></tr></thead>`;
+  const H = own.holds.map(h => ({ ...h, type: 'c', sub: `Org.nr ${fmtOrg(h.id)}` }));
   return head + `<div class="own">
-    <div class="glass card"><div class="vt">Endelige eiere</div>
-      <div class="ownbar" role="img" aria-label="${ult.map(u => `${esc(E(u.person).navn)} ${pc(u.pct)}`).join(', ')}">${ult.map((u, i) => `<i style="width:${u.pct}%;background:${OWN_C[i % OWN_C.length]}"></i>`).join('')}</div>
-      ${ult.map((u, i) => `<a class="lg-row" href="#/person/${u.person}"><span class="sw" style="background:${OWN_C[i % OWN_C.length]}"></span><div><b>${esc(E(u.person).navn)}</b><div class="via">${via(u)}</div></div><span class="pc num">${pc(u.pct)}</span></a>`).join('')}</div>
+    ${U.length ? `<div class="glass card"><div class="vt">Endelige eiere</div>
+      <div class="ownbar" role="img" aria-label="${top.map(u => `${esc(u.name)} ${pcp(u.pct)}`).join(', ')}">${top.map((u, i) => `<i style="width:${u.pct}%;background:${OWN_C[i % OWN_C.length]}"></i>`).join('')}${other > .05 ? `<i style="width:${other}%;background:var(--ln)"></i>` : ''}</div>
+      ${top.map(row).join('')}${other > .05 ? `<div class="lg-row"><span class="sw" style="background:var(--ln)"></span><div><b>Andre</b><div class="via">${rest ? esc(rest.name) + (U.length > 6 ? ' og flere' : '') : `${U.length - 6} flere eiere`}</div></div><span class="pc num">${pcp(other)}</span></div>` : ''}</div>` : ''}
     <div class="glass card">
-      ${direct.length ? `<div class="vt">Direkte aksjonærer</div><table class="mini" style="margin-top:8px"><tbody>${direct.sort((a, b) => b.andel - a.andel).map(e => `<tr data-href="${entHref(e.eier)}"><td><span style="display:flex;align-items:center;gap:10px"><span class="av ${E(e.eier).type === 'person' ? 'pe' : ''}" style="width:28px;height:28px;font-size:11px">${esc(ini(E(e.eier).navn))}</span>${esc(E(e.eier).navn)}</span></td><td class="muted" style="text-align:right;font-weight:400">${ent?.aksjer ? nf.format(Math.round(ent.aksjer * e.andel / 100)) + ' aksjer' : ''}</td><td>${pc(e.andel)}</td></tr>`).join('')}</tbody></table>` : ''}
-      ${hold.length ? `<div class="vt" style="margin-top:${direct.length ? 24 : 0}px">${esc(name)} eier selv</div><table class="mini" style="margin-top:8px"><tbody>${hold.map(e => `<tr data-href="#/selskap/${e.selskap}"><td>${esc(E(e.selskap).navn)}</td><td>${pc(e.andel)}</td></tr>`).join('')}</tbody></table>` : ''}
+      ${own.direct.length ? `<div class="vt">Direkte aksjonærer</div><table class="mini own-t">${hdr}${list(own.direct, 8)}</table>${more(own.direct, 8, own.direct.length)}${own.rest ? `<p class="muted" style="font-size:12px;margin-top:8px">+ ${nf.format(own.rest[0])} andre aksjonærer med til sammen ${pcp(own.rest[1])}</p>` : ''}` : ''}
+      ${H.length ? `<div class="vt" style="margin-top:${own.direct.length ? 22 : 0}px">${esc(name)} eier selv${own.holdsN > H.length ? ` (${nf.format(own.holdsN)})` : ''}</div><table class="mini own-t"><tbody>${H.slice(0, 8).map(h => `<tr data-href="${h.href}"><td><span class="who"><span class="av">${esc(ini(h.name))}</span><span><b>${esc(h.name)}</b><small>${h.sub}</small></span></span></td><td class="num">${pcp(h.pct)}</td></tr>`).join('')}</tbody>${H.length > 8 ? `<tbody class="more-own" hidden>${H.slice(8).map(h => `<tr data-href="${h.href}"><td><span class="who"><span class="av">${esc(ini(h.name))}</span><span><b>${esc(h.name)}</b><small>${h.sub}</small></span></span></td><td class="num">${pcp(h.pct)}</td></tr>`).join('')}</tbody>` : ''}</table>${more(H, 8, H.length)}` : ''}
     </div></div>`;
 }
 const ROLE_COLS = [
@@ -710,7 +848,7 @@ const ROLE_COLS = [
   ['Styret', ['LEDE', 'NEST', 'MEDL', 'VARA', 'OBS']],
   ['Revisor og regnskap', ['REVI', 'REGN']],
 ];
-function rolesBlock(ro) {
+function rolesBlock(ro, links = new Map()) {
   const all = (ro?.rollegrupper || []).flatMap(gr => gr.roller).filter(r => !r.fratraadt && !r.avregistrert);
   const people = Object.entries(OWN.enheter).filter(([, e]) => e.type === 'person');
   const nameOf = r => (r.person ? [r.person.navn?.fornavn, r.person.navn?.mellomnavn, r.person.navn?.etternavn].filter(Boolean).join(' ') : nice([].concat(r.enhet?.navn || []).join(' ')));
@@ -721,8 +859,10 @@ function rolesBlock(ro) {
   if (rest.length) cols.push(['Andre roller', rest]);
   const item = r => {
     const n = nameOf(r), yr = r.person?.fodselsdato ? ` · f. ${r.person.fodselsdato.slice(0, 4)}` : '';
-    const match = people.find(([, e]) => e.navn.toLowerCase() === n.toLowerCase());
-    const link = match ? `#/person/${match[0]}` : r.enhet?.organisasjonsnummer ? `#/selskap/${r.enhet.organisasjonsnummer}` : '';
+    const demoHit = !REG.meta && people.find(([, e]) => e.navn.toLowerCase() === n.toLowerCase());
+    const plink = links.get(n.toLowerCase()) || (demoHit ? `#/person/${demoHit[0]}` : '');
+    const match = !!plink;
+    const link = plink || (r.enhet?.organisasjonsnummer ? `#/selskap/${r.enhet.organisasjonsnummer}` : '');
     const lead = ['DAGL', 'LEDE'].includes(r.type.kode);
     return `<${link ? `a href="${link}"` : 'div'} class="pp"><span class="av ${r.person ? 'pe' : ''} ${lead ? 'lead' : ''}">${esc(ini(n))}</span><div><b>${esc(n)}</b><span>${esc(r.type.beskrivelse)}${yr}${match ? ' · se eierskap' : ''}</span></div></${link ? 'a' : 'div'}>`;
   };
@@ -760,7 +900,8 @@ async function company(id) {
   const name = demo ? E(id).navn : nice(ent.navn);
   document.title = `${name} – Kløver`;
   recent.add({ href: `#/selskap/${id}`, title: name, sub: demo ? 'Eksempelselskap' : `${fmtOrg(id)} · ${nice(ent.forretningsadresse?.poststed || '')}`, kind: 'co' });
-  const ys = parseYears(rs), ult = groupUltimate(id), F = facts(name, ys, ent, ro, ult);
+  const [own, roleLinks] = await Promise.all([ownership(id), demo ? new Map() : roleLinksFor(ro)]);
+  const ys = parseYears(rs), F = facts(name, ys, ent, ro, own);
   let si = ys.length - 1, metric = 'rev', cmp = true;
   try { cmp = localStorage.getItem('klover.cmp') !== '0'; } catch (e) { /* privat modus */ }
   const hn = (ent?.historiskeNavn || []).map(h => nice(h.navn));
@@ -789,11 +930,11 @@ async function company(id) {
       <div class="ins"><div class="ins-track" tabindex="0" aria-label="Fakta om ${esc(name)}">${F.map((f, i) => `<article class="fact glass"><span class="idx num">${String(i + 1).padStart(2, '0')}/${String(F.length).padStart(2, '0')}</span><div class="k">${STAR}${esc(f.k)}</div><div class="big num ${f.sm ? 'sm' : ''}">${esc(f.big)}</div><p>${f.text}</p></article>`).join('')}</div></div></section>` : ''}
     ${!demo ? `<section class="block" id="regnskap"><div class="block-h"><div><h2 class="h2">Tallene år for år</h2><p>Klikk på et år for å bla tilbake i tid. Trykk på <span class="info" style="display:inline-grid;vertical-align:-3px">i</span> for å se hva en post betyr.</p></div></div>
       ${ys.length ? `<div class="chart-card glass" style="margin-bottom:20px"><div class="chart-h"><div class="chart-v" id="cv"></div><div class="seg" role="tablist" aria-label="Velg nøkkeltall">${METRICS.map(([k, t]) => `<button role="tab" data-m="${k}" class="${k === metric ? 'on' : ''}" aria-selected="${k === metric}">${t}</button>`).join('')}</div></div><div class="chart" id="chart" tabindex="0" aria-label="Graf. Bruk piltastene for å bytte år."></div>${ys.length === 1 ? '<p class="chart-note">Selskapet har levert ett regnskap så langt. Grafen fylles på år for år.</p>' : ''}</div>
-        <div class="tbl-card glass"><div class="tbl-bar"><span id="unit" class="muted"></span><button class="switch" type="button" role="switch" aria-checked="${cmp}" data-cmp><span class="tr" aria-hidden="true"></span>Sammenlign med året før</button></div><div id="tbl"></div><div class="tbl-foot"><span>Kilde: Regnskapsregisteret${LOCAL || PROXY ? '' : ' (lagret utdrag)'}</span><span>Klikk på et år for å velge det</span></div></div>`
+        <div class="tbl-card glass"><div class="tbl-bar"><span id="unit" class="muted"></span><button class="switch" type="button" role="switch" aria-checked="${cmp}" data-cmp><span class="tr" aria-hidden="true"></span>Sammenlign med året før</button></div><div id="tbl"></div><div class="tbl-foot"><span>Kilde: Regnskapsregisteret${LOCAL || PROXY ? '' : ' (lagret utdrag)'}</span><span class="hide-m">Klikk på et år for å velge det</span><span class="show-m">Bytt år med pilene i menyen øverst</span></div></div>`
         : `<div class="glass card empty">${rs?.mangler ? 'Regnskapet til dette selskapet er ikke med i den publiserte demoen ennå. Den har lagret regnskap for selskapene i topplistene.' : 'Ingen regnskap funnet i Regnskapsregisteret.'}</div>`}
       </section>` : ''}
-    <section class="block" id="eiere">${ownershipBlock(id, name)}</section>
-    ${!demo ? `<section class="block" id="roller">${rolesBlock(ro)}</section>` : ''}
+    <section class="block" id="eiere">${ownershipBlock(own, name)}</section>
+    ${!demo ? `<section class="block" id="roller">${rolesBlock(ro, roleLinks)}</section>` : ''}
   </div></div>`;
   starField($('.ph .field'), { mode: 'breathe', sp: 11 });
 
@@ -835,6 +976,8 @@ async function company(id) {
     if (sw) { cmp = !cmp; sw.setAttribute('aria-checked', cmp); try { localStorage.setItem('klover.cmp', cmp ? '1' : '0'); } catch (er) { /* */ } $('table.fin')?.classList.toggle('nocmp', !cmp); setUnit(); }
     const mr = e.target.closest('[data-more-roles]');
     if (mr) { const m = mr.parentElement.querySelector('.pp-more'); m.hidden = !m.hidden; mr.textContent = m.hidden ? `Vis alle ${mr.parentElement.querySelectorAll('.pp').length}` : 'Vis færre'; }
+    const mw = e.target.closest('[data-more-own]');
+    if (mw) { const tb = mw.previousElementSibling?.querySelector('.more-own'); if (tb) { tb.hidden = !tb.hidden; mw.textContent = tb.hidden ? mw.dataset.label : 'Vis færre'; } }
     const mo = e.target.closest('[data-more]');
     if (mo) { const d = $('#desc'); d.classList.toggle('open'); mo.textContent = d.classList.contains('open') ? 'Vis mindre' : 'Vis mer'; }
     const cp = e.target.closest('[data-copy]');
@@ -879,13 +1022,24 @@ async function company(id) {
 
 // ---------- Person og eiertre ----------
 async function person(id) {
-  await loadOwn();
-  const p = E(id);
-  if (!p || p.type !== 'person') { location.hash = '#/eiere'; return; }
+  skeleton();
+  let p, tree, src;
+  if (isRegKey(id) && await regMeta()) {
+    const h = await regHold(id);
+    if (!h) { V.innerHTML = `<section class="ph"><div class="wrap"><div class="crumb"><a href="#/eiere">Eiersøk</a></div><h1 class="h2">Fant ikke eieren</h1><p class="lead" style="margin-top:16px">Denne eieren finnes ikke i aksjonærregisteret for ${REG.meta.år}.</p></div></section>`; return; }
+    const [, navn, yr, place] = h.i || [];
+    p = { navn: nice(navn || 'Ukjent eier'), sted: nice(place || ''), yr };
+    tree = await regTree(id); src = 'reg';
+  } else {
+    await loadOwn();
+    const e = E(id);
+    if (!e || e.type !== 'person') { location.hash = '#/eiere'; return; }
+    p = { navn: e.navn, sted: e.sted }; tree = buildTree(id); src = 'demo';
+  }
   document.title = `${p.navn} – Kløver`;
-  recent.add({ href: `#/person/${id}`, title: p.navn, sub: 'Eiertre · eksempeldata', kind: 'pe' });
-  const tree = buildTree(id), agg = aggregate(tree);
-  const direct = holdingsOf(id).length, fn = first(p.navn);
+  recent.add({ href: `#/person/${id}`, title: p.navn, sub: src === 'reg' ? [p.yr && `f. ${p.yr}`, p.sted].filter(Boolean).join(' · ') : 'Eiertre · eksempeldata', kind: 'pe' });
+  const agg = aggregate(tree);
+  const direct = tree.length, fn = first(p.navn);
   const open = new Set(), keyOf = n => n.chain.map(e => e.selskap).join('>');
   let selected = null, mode = 'tree';
   const find = (nodes, k) => { for (const n of nodes) { if (keyOf(n) === k) return n; const f = find(n.kids, k); if (f) return f; } };
@@ -895,7 +1049,7 @@ async function person(id) {
     <div class="crumb"><a href="#/eiere">Eiersøk</a><span>/</span><span>Person</span></div>
     <h1 class="h1" style="font-size:clamp(40px,5.8vw,88px)">${esc(p.navn)}</h1>
     <p class="lead" style="margin-top:20px">Eier noe i <b>${agg.size} selskaper</b> – ${direct} direkte og ${agg.size - direct} gjennom andre selskaper.</p>
-    <div class="chips" style="margin-top:18px"><span class="chip">${esc(p.sted)}</span><span class="demo">Eksempeldata</span></div>
+    <div class="chips" style="margin-top:18px">${p.yr ? `<span class="chip">f. ${esc(p.yr)}</span>` : ''}${p.sted ? `<span class="chip">${esc(p.sted)}</span>` : ''}${src === 'reg' ? `<span class="src-tag">Aksjonærregisteret ${REG.meta.år}</span>` : '<span class="demo">Eksempeldata</span>'}</div>
   </div></section>
   <div class="wrap" style="padding-bottom:110px">
     <div class="block-h"><div><h2 class="h2">Hva eier ${esc(fn)}?</h2><p>Trykk deg nedover i treet. Prosenten til høyre er ${esc(fn)}s reelle andel – ganget gjennom alle ledd.</p></div>
@@ -904,24 +1058,24 @@ async function person(id) {
   </div>`;
   constellation($('.ph .field'));
   const nodeHtml = (n, parent) => {
-    const e = E(n.id), k = keyOf(n), has = n.kids.length, isOpen = open.has(k), tot = agg.get(n.id).total;
+    const e = { navn: n.name }, k = keyOf(n), has = n.kids.length, isOpen = open.has(k), tot = agg.get(n.id).total;
     return `<div class="node"><div class="nrow glass ${selected === k ? 'sel' : ''}" data-key="${k}" role="treeitem" tabindex="0" aria-expanded="${has ? isOpen : ''}" aria-selected="${selected === k}">
       <span class="tg ${has ? (isOpen ? 'open' : '') : 'leaf'}">${ic('right')}</span><span class="av">${esc(ini(e.navn))}</span>
-      <div class="nm"><b>${esc(e.navn)}</b><span>${esc(parent)} eier ${pc(n.andel)}${has ? ` · eier selv ${n.kids.length} selskap${n.kids.length > 1 ? 'er' : ''}` : ''}</span></div>
-      <div class="eff"><b class="num">${pc(n.eff)}</b><span>${esc(fn)} ${n.chain.length > 1 ? 'indirekte' : 'direkte'}${Math.abs(tot - n.eff) > .01 ? ` · totalt ${pc(tot)}` : ''}</span></div>
-      <a class="open-l" href="${entHref(n.id)}" data-open aria-label="Åpne ${esc(e.navn)}">${ic('arrow')}</a></div>
+      <div class="nm"><b>${esc(e.navn)}</b><span>${esc(parent)} eier ${pcp(n.andel)}${has ? ` · eier selv ${n.kids.length} selskap${n.kids.length > 1 ? 'er' : ''}` : ''}</span></div>
+      <div class="eff"><b class="num">${pcp(n.eff)}</b><span>${esc(fn)} ${n.chain.length > 1 ? 'indirekte' : 'direkte'}${Math.abs(tot - n.eff) > .01 ? ` · totalt ${pcp(tot)}` : ''}</span></div>
+      <a class="open-l" href="#/selskap/${n.id}" data-open aria-label="Åpne ${esc(e.navn)}">${ic('arrow')}</a></div>
       ${has && isOpen ? `<div class="kids" role="group">${n.kids.map(c => nodeHtml(c, e.navn)).join('')}</div>` : ''}</div>`;
   };
   const pathBox = () => {
     const n = selected && find(tree, selected);
     if (!n) return `<div class="pathbox glass">${STAR.replace('<svg', '<svg style="width:12px;height:12px;fill:var(--ac)"')}<span class="muted">Trykk på et selskap for å se regnestykket bak eierandelen.</span></div>`;
-    const steps = n.chain.map(e => `<span class="ar">→ ${pc(e.andel)} →</span><span class="st">${esc(E(e.selskap).navn)}</span>`).join('');
-    return `<div class="pathbox glass" aria-live="polite"><span class="st">${esc(p.navn)}</span>${steps}<span class="res num">= ${pc(n.eff)}</span>${n.chain.length > 1 ? `<span class="fm">${n.chain.map(e => pc(e.andel)).join(' × ')} = ${pc(n.eff)}</span>` : ''}</div>`;
+    const steps = n.chain.map(e => `<span class="ar">→ ${pcp(e.andel)} →</span><span class="st">${esc(e.name)}</span>`).join('');
+    return `<div class="pathbox glass" aria-live="polite"><span class="st">${esc(p.navn)}</span>${steps}<span class="res num">= ${pcp(n.eff)}</span>${n.chain.length > 1 ? `<span class="fm">${n.chain.map(e => pcp(e.andel)).join(' × ')} = ${pcp(n.eff)}</span>` : ''}</div>`;
   };
   const listHtml = () => `<div class="glass card"><table class="mini"><tbody>${[...agg.values()].sort((a, b) => b.total - a.total).map(a => {
-    const e = E(a.id), kinds = new Set(a.paths.map(x => (x.chain.length > 1 ? 'indirekte' : 'direkte')));
-    return `<tr data-href="${entHref(a.id)}"><td><span style="display:flex;align-items:center;gap:12px"><span class="av">${esc(ini(e.navn))}</span><span><b style="font-weight:500">${esc(e.navn)}</b><br><span class="muted" style="font-size:13px">${a.paths.map(x => (x.chain.length > 1 ? `${pc(x.eff)} via ${x.chain.slice(0, -1).map(c => esc(E(c.selskap).navn)).join(' → ')}` : `${pc(x.eff)} direkte`)).join(' · ')}</span></span></span></td>
-      <td class="muted" style="font-weight:400;text-align:right;white-space:nowrap">${[...kinds].join(' + ')}</td><td style="font-size:20px;white-space:nowrap;padding-left:16px">${pc(a.total)}</td></tr>`;
+    const e = { navn: a.paths[0].name }, kinds = new Set(a.paths.map(x => (x.chain.length > 1 ? 'indirekte' : 'direkte')));
+    return `<tr data-href="#/selskap/${a.id}"><td><span style="display:flex;align-items:center;gap:12px"><span class="av">${esc(ini(e.navn))}</span><span><b style="font-weight:500">${esc(e.navn)}</b><br><span class="muted" style="font-size:13px">${a.paths.map(x => (x.chain.length > 1 ? `${pcp(x.eff)} via ${x.chain.slice(0, -1).map(c => esc(c.name)).join(' → ')}` : `${pcp(x.eff)} direkte`)).join(' · ')}</span></span></span></td>
+      <td class="muted" style="font-weight:400;text-align:right;white-space:nowrap">${[...kinds].join(' + ')}</td><td style="font-size:20px;white-space:nowrap;padding-left:16px">${pcp(a.total)}</td></tr>`;
   }).join('')}</tbody></table></div>`;
   const render = () => {
     $('#pbox').innerHTML = mode === 'tree' ? pathBox() : '';
@@ -943,16 +1097,19 @@ async function person(id) {
 async function owners() {
   await loadOwn();
   document.title = 'Eiersøk – Kløver';
-  const people = Object.entries(OWN.enheter).filter(([, e]) => e.type === 'person');
+  const reg = await regMeta();
+  const people = reg ? [] : Object.entries(OWN.enheter).filter(([, e]) => e.type === 'person');
+  const exHref = reg ? await examplePersonHref() : '';
   V.innerHTML = `
   <section class="ph" style="padding-bottom:80px"><canvas class="field" aria-hidden="true"></canvas><div class="wrap">
     <div class="lab nl">Eiersøk</div><h1 class="h1" style="font-size:clamp(40px,6vw,92px)">Hvem eier<br><span style="color:var(--ac)">hva</span>?</h1>
-    <p class="lead" style="margin:22px 0 30px">Søk på en person og se alt de eier – direkte og gjennom holdingselskaper. Vi regner ut den reelle andelen for deg.</p>
+    <p class="lead" style="margin:22px 0 30px">${reg ? `Søk blant ${nf.format(reg.personer)} personer og ${nf.format(reg.selskaper)} selskaper i aksjonærregisteret for ${reg.år}. Vi følger eierskapet gjennom holdingselskapene og regner ut den reelle andelen.` : 'Søk på en person og se alt de eier – direkte og gjennom holdingselskaper. Vi regner ut den reelle andelen for deg.'}</p>
     <div id="os" style="max-width:620px"></div></div></section>
   <section class="sec" style="padding-top:40px"><div class="wrap">
-    <div class="lab">Prøv eksempelet</div>
-    <div class="block-h"><h2 class="h2 rv">Oppdiktede eiere,<br>ekte regnestykker.</h2><span class="demo rv">Eksempeldata</span></div>
-    <div class="roles">${people.map(([pid, e]) => `<a class="role glass rv" href="#/person/${pid}"><span class="av pe">${esc(ini(e.navn))}</span><div><b>${esc(e.navn)}</b><span>Eier i ${aggregate(buildTree(pid)).size} selskaper · ${esc(e.sted)}</span></div></a>`).join('')}
+    <div class="lab">${reg ? 'Prøv selv' : 'Prøv eksempelet'}</div>
+    <div class="block-h"><h2 class="h2 rv">${reg ? 'Ekte eiere,<br>ekte regnestykker.' : 'Oppdiktede eiere,<br>ekte regnestykker.'}</h2>${reg ? `<span class="src-tag rv">Aksjonærregisteret ${reg.år}</span>` : '<span class="demo rv">Eksempeldata</span>'}</div>
+    <div class="roles">${reg ? `<a class="role glass rv" href="${exHref}"><span class="av pe">PS</span><div><b>Petter Sommerseth</b><span>Eier via holdingselskap</span></div></a>
+      <a class="role glass rv" href="#/selskap/923609016"><span class="av">EQ</span><div><b>Equinor ASA</b><span>131 000+ aksjonærer, staten eier 67 %</span></div></a>` : people.map(([pid, e]) => `<a class="role glass rv" href="#/person/${pid}"><span class="av pe">${esc(ini(e.navn))}</span><div><b>${esc(e.navn)}</b><span>Eier i ${aggregate(buildTree(pid)).size} selskaper · ${esc(e.sted)}</span></div></a>`).join('')}
       <a class="role glass rv" href="#/selskap/935851076"><span class="av">EE</span><div><b>Efjord Extreme AS</b><span>Se hvem som eier selskapet</span></div></a></div>
   </div></section>
   <section class="sec alt"><div class="wrap">
@@ -966,7 +1123,8 @@ async function owners() {
   $('#os').append(makeSearch({ mode: 'hero', placeholder: 'Søk etter en person eller et selskap' }).el);
 }
 
-function about() {
+async function about() {
+  await regMeta();
   document.title = 'Om dataene – Kløver';
   V.innerHTML = `
   <section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap"><div class="lab nl">Om dataene</div>
@@ -976,7 +1134,7 @@ function about() {
     <div class="rv"><span>01</span><h3>Enhetsregisteret</h3><p>Navn, adresse, bransje, ansatte, stiftelsesdato, navnehistorikk og roller. Hentes direkte og er alltid oppdatert.</p></div>
     <div class="rv"><span>02</span><h3>Regnskapsregisteret</h3><p>Resultat og balanse for de tre siste årene. ${LOCAL || PROXY ? 'Hentes direkte.' : 'Den publiserte siden viser et lagret utdrag for selskapene i topplistene, fordi registeret ikke kan kalles direkte fra nettleseren.'} Utbytte er estimert som årsresultat minus endring i opptjent egenkapital.</p></div>
     <div class="rv"><span>03</span><h3>Topplister</h3><p>Et eksempelutvalg på ${TOP ? nf.format(TOP.selskaper.length) : 'rundt 1 400'} selskaper: de største og et utvalg mellomstore i hvert fylke. Hele landet krever at alle regnskap lagres i en egen database.</p></div>
-    <div class="rv"><span>04</span><h3>Eierskap</h3><p>Eksempeldata. Aksjonærregisteret må bestilles fra Skatteetaten som en årlig fil og vurderes opp mot personvern før det kan vises.</p></div>
+    <div class="rv"><span>04</span><h3>Eierskap</h3><p>${REG.meta ? `Aksjonærregisteret fra Skatteetaten for ${[...REG.meta.tidligere].reverse().join(', ')} og ${REG.meta.år}: ${nf.format(REG.meta.selskaper)} selskaper og ${nf.format(REG.meta.personer)} personer. Bare i den lokale versjonen, fordi registeret inneholder personopplysninger.` : 'Eksempeldata på denne siden. Aksjonærregisteret fra Skatteetaten er foreløpig bare koblet på i den lokale versjonen, fordi det inneholder personopplysninger.'}</p></div>
   </div></div></section>`;
   starField($('.ph .field'), { mode: 'breathe', sp: 11 });
 }

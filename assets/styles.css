@@ -234,7 +234,9 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .facts dl{display:grid;grid-template-columns:auto 1fr;gap:10px 18px;font-size:14px}
 .facts dt{color:var(--mut)}
 .facts dd{font-weight:500;text-align:right;display:flex;justify-content:flex-end;align-items:center;gap:6px}
-.copy{color:var(--mut);padding:2px;border-radius:4px}
+.copy{color:var(--mut);padding:2px;border-radius:4px;position:relative}
+/* Større trykkflate uten at ikonet blir større */
+.copy:after,.info:after{content:'';position:absolute;inset:-12px}
 .copy:hover{color:var(--ac)}
 .subnav{position:sticky;top:72px;z-index:30;margin:30px 0 40px;display:flex;align-items:center;gap:6px;padding:6px;border-radius:999px;transition:top .4s var(--ease)}
 .subnav .tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1}
@@ -260,7 +262,7 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .spark i{width:8px;background:var(--ln);border-radius:1px}
 .spark i.on{background:var(--ac)}
 .up{color:var(--up)}.dn{color:var(--down)}
-.info{width:16px;height:16px;border-radius:50%;border:1px solid #c8c8c8;color:var(--mut);font-size:10px;font-weight:600;display:inline-grid;place-items:center;flex:none;line-height:1;transition:border-color .2s,color .2s,background .2s;font-family:Georgia,serif;font-style:italic}
+.info{position:relative;width:16px;height:16px;border-radius:50%;border:1px solid #c8c8c8;color:var(--mut);font-size:10px;font-weight:600;display:inline-grid;place-items:center;flex:none;line-height:1;transition:border-color .2s,color .2s,background .2s;font-family:Georgia,serif;font-style:italic}
 .info:hover,.info:focus-visible,.info[aria-expanded=true]{border-color:var(--ac);color:var(--ink);background:var(--peach)}
 
 /* Innsikt */
@@ -312,8 +314,11 @@ table.fin th,table.fin td{padding:0 14px;height:31px;border-bottom:1px solid #ee
 table.fin thead th{position:sticky;top:0;background:rgba(254,253,250,.96);font-size:12px;font-weight:500;color:var(--mut);height:36px;border-bottom:1px solid var(--ink);cursor:pointer;z-index:2}
 table.fin thead th.on{color:var(--ink);font-weight:600;box-shadow:inset 0 -3px 0 var(--ac)}
 table.fin th:first-child,table.fin td:first-child{text-align:left;position:sticky;left:0;background:var(--bg);z-index:1;min-width:210px}
-/* Årskolonnene krymper til innholdet og samles til høyre */
-table.fin th:not(:first-child),table.fin td:not(:first-child){width:1%;padding-left:26px}
+/* Årskolonnene: like brede, samlet til høyre. Tallet har fast bredde, endringen fast plass ved siden av */
+table.fin{--cdw:72px;--cdg:10px}
+table.fin th:not(:first-child),table.fin td:not(:first-child){width:1%;padding-left:22px}
+table.fin thead th:not(:first-child){padding-right:calc(14px + var(--cdw) + var(--cdg))}
+table.fin .cv{display:inline-block;min-width:var(--vw,8ch);text-align:right}
 table.fin thead th:first-child{z-index:3;cursor:default}
 table.fin td.on{background:rgba(239,113,64,.06)}
 table.fin tbody tr:hover td{background:var(--bg2)}
@@ -323,7 +328,7 @@ table.fin tr.gap td{height:22px;border:0;background:transparent!important;paddin
 table.fin tr.sum td{font-weight:600;border-top:1px solid var(--ink)}
 table.fin .rl{display:inline-flex;align-items:center;gap:6px}
 table.fin td.na{color:#c0c0c0}
-.cd{display:inline-block;min-width:66px;text-align:right;font-size:11px;font-weight:500;margin-left:10px;color:var(--mut);transition:opacity .2s}
+.cd{display:inline-block;min-width:var(--cdw,66px);text-align:right;font-size:12px;font-weight:500;margin-left:var(--cdg,10px);color:var(--mut);transition:opacity .2s}
 table.fin.nocmp .cd{opacity:0}
 .cd.up{color:var(--up)}.cd.dn{color:var(--down)}.cd.na{color:#cfcfcf}
 .tbl-foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:10px 14px;font-size:12px;color:var(--mut);background:var(--bg)}
@@ -450,6 +455,27 @@ a.pp:hover b{color:var(--ac)}
 .pp span:not(.av){font-size:12px;color:var(--mut)}
 .av.lead{box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--ac)}
 
+/* Eierdata fra aksjonærregisteret */
+.src-tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:99px;background:rgba(0,0,0,.05);color:var(--ink);white-space:nowrap}
+.src-tag:before{content:'';width:6px;height:6px;border-radius:50%;background:var(--up)}
+.new{font-size:11px;font-weight:600;color:var(--up);white-space:nowrap}
+.own-empty{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.own-empty>div{flex:1;min-width:220px}
+.own-empty b{font-weight:500;font-size:17px}
+.own-empty p{margin-top:4px;font-size:14px}
+table.own-t{margin-top:6px}
+table.own-t th{font-size:11px;font-weight:500;color:var(--mut);text-align:right;padding:0 0 6px 10px;white-space:nowrap}
+table.own-t th:first-child{text-align:left;padding-left:0}
+table.own-t td{padding:7px 0 7px 16px;vertical-align:middle;text-align:right;white-space:nowrap}
+table.own-t td:first-child{padding-left:0;text-align:left;white-space:normal;width:100%}
+table.own-t td.ch{font-size:11px;font-weight:500;min-width:64px}
+table.own-t td.sh{color:var(--mut);font-weight:400}
+table.own-t .who{display:flex;align-items:center;gap:10px;min-width:0}
+table.own-t .who .av{width:28px;height:28px;font-size:10px}
+table.own-t .who b{display:block;font-weight:500;line-height:1.25}
+table.own-t .who small{display:block;font-size:12px;color:var(--mut);font-weight:400}
+table.own-t tbody[hidden]{display:none}
+
 /* Kompakt selskapsside */
 .co-page .ph{padding:100px 0 16px}
 .co-page .co-top{grid-template-columns:1fr 300px;gap:28px;align-items:start}
@@ -531,15 +557,75 @@ a.pp:hover b{color:var(--ac)}
   .ph{padding:120px 0 36px}
   .feat-vis{height:280px}
 }
+.show-m{display:none}
+/* ---------- Mobil (grundig gjennomgang) ---------- */
+@media(max-width:900px){
+  /* Trykkflater på minst 40 px */
+  .lgo{min-height:40px}
+  .mb{min-height:40px;padding:0 10px}
+  .sbtn{height:40px;width:40px;justify-content:center;padding:0}
+  .chip{min-height:38px;padding:6px 14px}
+  .tl-page .lists .chip{min-height:38px;padding:6px 13px;font-size:13px}
+  .sel select,.tl-page .sel select{height:42px;font-size:15px}
+  .btn,.tl-page .tb .btn{min-height:42px}
+  button.lnk,a.lnk{min-height:40px;display:inline-flex;align-items:center}
+  .rbtn,.co-page .rbtn{width:38px;height:38px}
+  .subnav .tabs a,.co-page .subnav .tabs a{padding:10px 14px}
+  .seg button,.co-page .seg button{padding:10px 14px;font-size:13px}
+  .nrow .open-l{width:40px;height:40px}
+  .crumb a{min-height:40px;display:inline-flex;align-items:center}
+  table.own-t th,table.own-t td.ch,.new{font-size:12px}
+  .switch{min-height:40px}
+  .mnav a{padding:10px 0}
+  .cmdk{padding-top:76px}
+  .cmdk .foot-h{display:none}
+  /* Selskapssiden: ingen sidelengs scroll */
+  .co-page .co-top{grid-template-columns:1fr;gap:18px}
+  .co-page .ph{padding:92px 0 12px}
+  .co-page .subnav{top:66px;margin:6px 0 18px}
+  .co-page .block{margin-bottom:36px}
+  .co-page .kgrid{grid-template-columns:1fr 1fr;gap:10px}
+  .co-page .kc{padding:12px 13px}
+  .co-page .kc .v{font-size:18px}
+  .co-page .kc .d{flex-direction:column;align-items:flex-start;gap:6px}
+  .co-page .own{gap:12px}
+  /* Eiertabeller: dropp antall aksjer */
+  table.own-t .sh{display:none}
+  table.own-t td{padding-left:10px}
+  /* Eiertre: mindre innrykk per nivå */
+  .tree .kids{margin-left:10px;padding-left:12px}
+  .tree .kids>.node:before{left:-12px;width:9px}
+  /* Eiertre-rad på mobil: navn øverst, andel under, pil til høyre */
+  .nrow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;column-gap:8px;row-gap:3px;align-items:center;padding:10px 10px 10px 8px}
+  .nrow .tg{grid-column:1;grid-row:1/3}
+  .nrow .av{display:none}
+  .nrow .nm{grid-column:2;grid-row:1}
+  .nrow .nm b{font-size:15px;white-space:normal;overflow:visible}
+  .nrow .eff{grid-column:2;grid-row:2;text-align:left;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .nrow .eff b{font-size:16px;display:inline}
+  .nrow .open-l{grid-column:3;grid-row:1/3}
+  .pathbox{font-size:13px}
+}
 @media(max-width:560px){
-  table.fin th:first-child,table.fin td:first-child{min-width:142px;white-space:normal;line-height:1.2}
-  table.fin th,table.fin td{padding:0 10px}
-  .cd{min-width:54px;margin-left:6px}
   .kgrid{grid-template-columns:1fr}
   .fpanel{grid-template-columns:1fr}
   .ft .cols{grid-template-columns:1fr}
   .tl-prev .card{padding:20px}
   .fact .big{font-size:38px}
+  /* Regnskapstabellen viser ett år om gangen på mobil – velg år i årsvelgeren */
+  table.fin{min-width:0;--cdw:58px;--cdg:4px}
+  table.fin th:not(:first-child):not(.on),table.fin td:not(:first-child):not(.on){display:none}
+  table.fin th:first-child,table.fin td:first-child{min-width:0;width:auto;white-space:normal;line-height:1.25;padding:6px 6px 6px 12px;height:auto;min-height:36px}
+  table.fin th,table.fin td{height:38px}
+  table.fin th:not(:first-child),table.fin td:not(:first-child){padding-left:2px;padding-right:8px}
+  table.fin thead th:not(:first-child){padding-right:calc(8px + var(--cdw) + var(--cdg))}
+  table.fin .rl{gap:5px}
+  .tbl-bar{font-size:12px}
+  .show-m{display:inline}.hide-m{display:none}
+  .co-page .fact{flex-basis:82%}
+  .co-page .fact .big{font-size:26px}
+  .org-col{border-left:0;border-top:1px solid rgba(0,0,0,.06)}
+  .org-col:first-child{border-top:0}
 }
 @media(prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}

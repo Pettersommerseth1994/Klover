@@ -33,7 +33,20 @@ Proxyen kjører på `https://klover-proxy.klover.workers.dev`, og adressen står
 - `assets/logo.svg`, `assets/favicon.svg` – logo. Ordmerket i `logo.svg` er tekst og trenger fonten Inter Tight for å se riktig ut.
 - `data/toplists.json` – eksempelutvalg for topplistene. Bygg på nytt med `python3 scripts/build_toplists.py` (tar et par minutter).
 - `data/regnskap/` – lagret regnskap per selskap, brukt av den publiserte siden. Bygg på nytt med `python3 scripts/build_regnskap.py`.
-- `data/ownership.json` – **eksempeldata** for eierskap. Personer og holdingselskaper er oppdiktet, og eierandelene i Efjord Extreme AS er også oppdiktet.
+- `data/ownership.json` – **eksempeldata** for eierskap, brukt når aksjonærregisteret ikke finnes (for eksempel på GitHub Pages).
+- `data/aksjonaerregister/` – **lokal** indeks over aksjonærregisteret. Inneholder personopplysninger og er ignorert av Git – skal aldri pushes.
+
+## Aksjonærregisteret (lokalt)
+
+Aksjeeierbøkene fra Skatteetaten (CSV, én per år) gjøres om til en oppslagsindeks:
+
+```bash
+python3 scripts/build_aksjonaerregister.py ~/Downloads/aksjeeiebok_2023.csv ~/Downloads/aksjeeiebok_2024.csv ~/Downloads/aksjeeiebok_2025.csv
+```
+
+Det tar under ett minutt og gir rundt 400 MB i `data/aksjonaerregister/`. Når mappen finnes, bruker appen ekte eierdata: direkte aksjonærer med endring fra året før, endelige eiere gjennom holdingselskaper, personsøk, eiertre per person og lenker fra styremedlemmer til eierskapet deres. Uten mappen faller appen tilbake til eksempeldataene.
+
+Personer har ikke fødselsnummer i registeret, så en person identifiseres med navn, fødselsår og postnummer/sted. Flytter noen, kan de få ny nøkkel mellom årene.
 
 ## Datakilder
 
@@ -42,4 +55,4 @@ Proxyen kjører på `https://klover-proxy.klover.workers.dev`, og adressen står
 | Selskapsinfo, roller | Enhetsregisteret | Live |
 | Regnskap (3 siste år) | Regnskapsregisteret via proxy | Live |
 | Topplister | Utvalg fra Brreg | ~1 400 selskaper |
-| Eierskap | Aksjonærregisteret (Skatteetaten) | Ikke koblet på – eksempeldata |
+| Eierskap | Aksjonærregisteret 2023–2025 (Skatteetaten) | Lokalt – eksempeldata på GitHub Pages |
