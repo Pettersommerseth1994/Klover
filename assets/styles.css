@@ -105,8 +105,10 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 /* Sloganet står på to linjer: «Alt om norske selskaper,» / «enkelt forklart.» Første linje er ca. 9,5em bred,
    så på smale skjermer krymper skriften akkurat nok til at den får plass */
 .hero h1{margin:0 auto;font-size:min(clamp(40px,6.4vw,96px),calc((100vw - 2 * var(--pad)) / 10))}
-.w{display:inline-block;vertical-align:top;overflow:hidden;padding-bottom:.12em;margin-bottom:-.12em}
-.wi{display:inline-block;transform:translateY(110%);animation:rise 1.1s var(--ease) both;animation-delay:calc(.2s + var(--i)*.08s)}
+/* Ordene glir opp i hver sin «maske». Masken har luft på alle sider (og negativ marg, så avstandene er de samme),
+   ellers kuttes bokstaver som stikker utenfor – f.eks. siste «e» med stram bokstavavstand, eller bunnen i noen nettlesere */
+.w{display:inline-block;vertical-align:top;overflow:hidden;padding:.06em .1em .24em;margin:-.06em -.1em -.24em}
+.wi{display:inline-block;transform:translateY(135%);animation:rise 1.1s var(--ease) both;animation-delay:calc(.2s + var(--i)*.08s)}
 @keyframes rise{to{transform:none}}
 .hero .lead{margin:26px auto 36px;text-align:center;animation:up 1s .9s both}
 @keyframes up{from{opacity:0;transform:translateY(24px)}}
@@ -196,6 +198,8 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .ft h5{font-size:12px;font-weight:500;color:rgba(244,241,234,.5);margin-bottom:14px}
 .ft a{display:block;padding:3px 0;transition:color .25s}
 .ft a:hover{color:var(--ac)}
+/* Logoen i bunnteksten: symbolet og teksten på samme linje, som i toppen */
+.ft a.lgo{display:inline-flex;width:max-content}
 .ft p{color:rgba(244,241,234,.7);max-width:36ch;font-size:15px}
 .ft .legal{margin-top:80px;border-top:1px solid rgba(255,255,255,.16);padding-top:20px;display:flex;gap:8px 24px;flex-wrap:wrap;font-size:13px;color:rgba(244,241,234,.55)}
 .ft .sym{position:absolute;right:-40px;bottom:-80px;width:min(46vw,520px);opacity:.07;fill:#fff;animation:sp 80s linear infinite}
