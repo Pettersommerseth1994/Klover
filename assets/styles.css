@@ -213,6 +213,38 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 
 /* Topplister */
 .tb{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px;margin-bottom:16px}
+/* Forslag til nye topplister (#/lister) */
+.idea-ban{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 10px 10px 18px;margin-bottom:16px;border-radius:999px;font-size:14px;transition:box-shadow .3s}
+.idea-ban b{font-weight:600}
+.idea-ban:hover{box-shadow:inset 0 1.5px 1px rgba(255,255,255,.9),0 12px 34px rgba(10,20,30,.14)}
+.idea-ban:hover .eb-ar{transform:translateX(3px)}
+.ideas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.idea{display:flex;flex-direction:column;gap:6px;padding:24px 26px 18px}
+.idea h3{font-size:22px;font-weight:500;letter-spacing:-.03em;line-height:1.2}
+.idea-s{font-size:13px;color:var(--mut);line-height:1.45;margin-bottom:8px}
+.idea .seg{align-self:flex-start;margin-bottom:6px}
+.idea-tag{align-self:flex-start;font-size:12px;font-weight:500;padding:5px 10px;border-radius:999px;background:var(--peach);color:#8a3a17;margin-bottom:6px}
+.idea-b{flex:1}
+.idea-f{font-size:12px;color:var(--mut);line-height:1.45;margin-top:10px}
+.irows{list-style:none;margin:0;padding:0}
+.irow{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--ln);transition:padding .3s var(--ease)}
+.irow:hover{padding-left:6px}
+.irow:hover b{color:var(--ac)}
+.ir-n{font-size:15px;color:rgba(0,0,0,.35)}
+.irows li:nth-child(-n+3) .ir-n{color:var(--ac);font-weight:600}
+.ir-t{display:flex;flex-direction:column;min-width:0}
+.ir-t b{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .25s}
+.ir-t span{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ir-v{font-size:16px;font-weight:500;letter-spacing:-.02em;white-space:nowrap}
+.ir-empty{padding:18px 0;font-size:14px}
+@media(max-width:900px){.ideas{grid-template-columns:1fr}}
+@media(max-width:560px){
+  .idea{padding:18px 16px 14px}
+  .idea h3{font-size:19px}
+  .idea-ban{border-radius:16px;align-items:flex-start;font-size:13px;line-height:1.35}
+  .irow{grid-template-columns:22px minmax(0,1fr) auto;gap:8px}
+  .ir-v{font-size:14px}
+}
 .tb .sp{flex:1}
 .lists{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px 0 14px}
 .lists::-webkit-scrollbar{display:none}
