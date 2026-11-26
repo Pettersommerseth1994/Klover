@@ -1,9 +1,9 @@
 'use strict';
-/* ddai – prototype. Åpne data fra Brønnøysundregistrene (NLOD) + eksempeldata for eierskap.
+/* Kløver – prototype. Åpne data fra Brønnøysundregistrene (NLOD) + eksempeldata for eierskap.
    Designsystem: Stetinden Studio (Inter Tight, #EF7140, glass, stjernefelt). */
 
 // Adressen til Cloudflare-proxyen for Regnskapsregisteret (se proxy/). Tom = bruk lagret utdrag.
-const PROXY = 'https://ddai-proxy.ddai-no.workers.dev';
+const PROXY = 'https://klover-proxy.ddai-no.workers.dev';
 
 // ---------- Hjelpere ----------
 const $ = (s, r = document) => r.querySelector(s);
@@ -244,7 +244,7 @@ function aggregate(nodes, map = new Map()) {
 }
 
 // Nylig besøkt (bare i denne nettleseren)
-const RK = 'ddai.recent';
+const RK = 'klover.recent';
 const recent = {
   get() { try { return JSON.parse(localStorage.getItem(RK)) || []; } catch (e) { return []; } },
   add(x) { try { localStorage.setItem(RK, JSON.stringify([x, ...recent.get().filter(y => y.href !== x.href)].slice(0, 6))); } catch (e) { /* privat modus */ } },
@@ -404,7 +404,7 @@ const sel = (name, opts, cur, label) => `<span class="sel"><select data-f="${nam
 
 // ---------- Forside ----------
 async function home() {
-  document.title = 'ddai – alt om norske selskaper';
+  document.title = 'Kløver – alt om norske selskaper';
   const words = ['Alt', 'om', 'norske', 'selskaper,', 'enkelt', 'forklart.'];
   V.innerHTML = `
   <section class="hero" aria-labelledby="h-hero"><canvas class="field" aria-hidden="true"></canvas>
@@ -455,7 +455,7 @@ async function home() {
   });
   await loadTop();
   const fySel = $('#tl-prev select');
-  let fy = ''; try { fy = localStorage.getItem('ddai.fylke') || ''; } catch (e) { /* */ }
+  let fy = ''; try { fy = localStorage.getItem('klover.fylke') || ''; } catch (e) { /* */ }
   fySel.value = fy;
   const renderPrev = () => {
     const base = { fylke: fy, kommune: '', bransje: '', ans: '', form: '', dir: 0, år: '2025', n: 5 };
@@ -466,7 +466,7 @@ async function home() {
         ${rows.map((r, i) => `<a class="mrow" href="#/selskap/${r.c.org}"><span class="n">${i + 1}</span><b>${esc(nice(r.c.navn))}</b><span class="v num">${p.f(r.v)}</span></a>`).join('') || '<p class="muted">Ingen treff.</p>'}</article>`;
     }).join('');
   };
-  fySel.addEventListener('change', () => { fy = fySel.value; try { localStorage.setItem('ddai.fylke', fy); } catch (e) { /* */ } renderPrev(); });
+  fySel.addEventListener('change', () => { fy = fySel.value; try { localStorage.setItem('klover.fylke', fy); } catch (e) { /* */ } renderPrev(); });
   renderPrev();
 }
 
@@ -504,7 +504,7 @@ async function toplists(q) {
     const { p, rows, total } = rankRows(st);
     const max = Math.max(...rows.map(r => Math.abs(r.v)), 1);
     const where = st.kommune || st.fylke || 'hele Norge';
-    document.title = `${p.t} i ${where} – ddai`;
+    document.title = `${p.t} i ${where} – Kløver`;
     $('#tl-h').innerHTML = `<h1 class="h1">${esc(p.t)} <span class="muted">i ${esc(where)}</span></h1><p class="lead">${esc(p.s)} · regnskapsår ${st.år}.</p>`;
     $$('[data-l]').forEach(b => { b.classList.toggle('on', b.dataset.l === st.liste); b.setAttribute('aria-selected', b.dataset.l === st.liste); });
     const kommuner = [...new Set(TOP.selskaper.filter(c => !st.fylke || c.fylke === st.fylke).map(c => c.kommune))].sort((a, b) => a.localeCompare(b, 'nb'));
@@ -758,11 +758,11 @@ async function company(id) {
     if (!ent?.navn) { V.innerHTML = `<section class="ph"><div class="wrap"><div class="lab nl">Selskap</div><h1 class="h2">Fant ikke selskapet</h1><p class="lead" style="margin-top:16px">Vi fant ingen enhet med organisasjonsnummer ${esc(fmtOrg(id))} i Enhetsregisteret.</p><button class="btn" style="margin-top:24px" data-cmdk-open>${ic('search')} Søk på nytt</button></div></section>`; $('[data-cmdk-open]').onclick = openPalette; return; }
   } else if (!E(id)) { location.hash = '#/'; return; }
   const name = demo ? E(id).navn : nice(ent.navn);
-  document.title = `${name} – ddai`;
+  document.title = `${name} – Kløver`;
   recent.add({ href: `#/selskap/${id}`, title: name, sub: demo ? 'Eksempelselskap' : `${fmtOrg(id)} · ${nice(ent.forretningsadresse?.poststed || '')}`, kind: 'co' });
   const ys = parseYears(rs), ult = groupUltimate(id), F = facts(name, ys, ent, ro, ult);
   let si = ys.length - 1, metric = 'rev', cmp = true;
-  try { cmp = localStorage.getItem('ddai.cmp') !== '0'; } catch (e) { /* privat modus */ }
+  try { cmp = localStorage.getItem('klover.cmp') !== '0'; } catch (e) { /* privat modus */ }
   const hn = (ent?.historiskeNavn || []).map(h => nice(h.navn));
   const tabs = demo ? [['eiere', 'Eiere']] : [['oversikt', 'Oversikt'], ['innsikt', 'Innsikt'], ['regnskap', 'Regnskap'], ['eiere', 'Eiere'], ['roller', 'Roller']];
   const dl = demo ? [['Type', 'Oppdiktet eksempelselskap'], ['Sted', E(id).sted]] : [
@@ -773,7 +773,7 @@ async function company(id) {
   ];
   V.innerHTML = `<div class="co-page">
   <section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap">
-    <div class="crumb"><a href="#/">ddai</a><span>/</span><span>${demo ? 'Eksempelselskap' : esc(ent.naeringskode1?.beskrivelse || 'Selskap')}</span></div>
+    <div class="crumb"><a href="#/">Kløver</a><span>/</span><span>${demo ? 'Eksempelselskap' : esc(ent.naeringskode1?.beskrivelse || 'Selskap')}</span></div>
     <div class="co-top">
       <div><h1>${esc(name)}</h1>${hn.length ? `<p class="was">Tidligere navn: ${hn.map(esc).join(', ')}</p>` : ''}
         <div class="chips" style="margin-top:18px">${demo ? '<span class="demo">Eksempeldata</span>' : ''}${ent?.konkurs || ent?.underAvvikling || ent?.underTvangsavviklingEllerTvangsopplosning ? '<span class="chip ex">Konkurs eller avvikling</span>' : ''}${ent?.hjemmeside ? `<a class="chip" href="https://${esc(ent.hjemmeside.replace(/^https?:\/\//, ''))}" target="_blank" rel="noopener">${esc(ent.hjemmeside)} ${ic('ext')}</a>` : ''}</div>
@@ -832,7 +832,7 @@ async function company(id) {
     const go = e.target.closest('[data-go]'); if (go) $('#' + go.dataset.go)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const tr = e.target.closest('tr[data-href]'); if (tr) location.hash = tr.dataset.href;
     const sw = e.target.closest('[data-cmp]');
-    if (sw) { cmp = !cmp; sw.setAttribute('aria-checked', cmp); try { localStorage.setItem('ddai.cmp', cmp ? '1' : '0'); } catch (er) { /* */ } $('table.fin')?.classList.toggle('nocmp', !cmp); setUnit(); }
+    if (sw) { cmp = !cmp; sw.setAttribute('aria-checked', cmp); try { localStorage.setItem('klover.cmp', cmp ? '1' : '0'); } catch (er) { /* */ } $('table.fin')?.classList.toggle('nocmp', !cmp); setUnit(); }
     const mr = e.target.closest('[data-more-roles]');
     if (mr) { const m = mr.parentElement.querySelector('.pp-more'); m.hidden = !m.hidden; mr.textContent = m.hidden ? `Vis alle ${mr.parentElement.querySelectorAll('.pp').length}` : 'Vis færre'; }
     const mo = e.target.closest('[data-more]');
@@ -882,7 +882,7 @@ async function person(id) {
   await loadOwn();
   const p = E(id);
   if (!p || p.type !== 'person') { location.hash = '#/eiere'; return; }
-  document.title = `${p.navn} – ddai`;
+  document.title = `${p.navn} – Kløver`;
   recent.add({ href: `#/person/${id}`, title: p.navn, sub: 'Eiertre · eksempeldata', kind: 'pe' });
   const tree = buildTree(id), agg = aggregate(tree);
   const direct = holdingsOf(id).length, fn = first(p.navn);
@@ -942,7 +942,7 @@ async function person(id) {
 
 async function owners() {
   await loadOwn();
-  document.title = 'Eiersøk – ddai';
+  document.title = 'Eiersøk – Kløver';
   const people = Object.entries(OWN.enheter).filter(([, e]) => e.type === 'person');
   V.innerHTML = `
   <section class="ph" style="padding-bottom:80px"><canvas class="field" aria-hidden="true"></canvas><div class="wrap">
@@ -967,11 +967,11 @@ async function owners() {
 }
 
 function about() {
-  document.title = 'Om dataene – ddai';
+  document.title = 'Om dataene – Kløver';
   V.innerHTML = `
   <section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap"><div class="lab nl">Om dataene</div>
     <h1 class="h1" style="font-size:clamp(40px,5.8vw,88px)">Hvor tallene<br>kommer fra.</h1>
-    <p class="lead" style="margin-top:22px">ddai er bygget på åpne data fra Brønnøysundregistrene, lisensiert under Norsk lisens for offentlige data (NLOD).</p></div></section>
+    <p class="lead" style="margin-top:22px">Kløver er bygget på åpne data fra Brønnøysundregistrene, lisensiert under Norsk lisens for offentlige data (NLOD).</p></div></section>
   <section class="sec" style="padding-top:30px"><div class="wrap"><div class="sv">
     <div class="rv"><span>01</span><h3>Enhetsregisteret</h3><p>Navn, adresse, bransje, ansatte, stiftelsesdato, navnehistorikk og roller. Hentes direkte og er alltid oppdatert.</p></div>
     <div class="rv"><span>02</span><h3>Regnskapsregisteret</h3><p>Resultat og balanse for de tre siste årene. ${LOCAL || PROXY ? 'Hentes direkte.' : 'Den publiserte siden viser et lagret utdrag for selskapene i topplistene, fordi registeret ikke kan kalles direkte fra nettleseren.'} Utbytte er estimert som årsresultat minus endring i opptjent egenkapital.</p></div>

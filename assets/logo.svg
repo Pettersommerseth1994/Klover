@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 32" fill="#111" role="img" aria-label="ddai">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 32" fill="#111" role="img" aria-label="Kløver">
   <path d="M8.5 2a6.5 6.5 0 0 1 6.5 6.5V15H8.5a6.5 6.5 0 1 1 0-13zM23.5 2a6.5 6.5 0 1 1 0 13H17V8.5A6.5 6.5 0 0 1 23.5 2zM8.5 17H15v6.5A6.5 6.5 0 1 1 8.5 17zM17 17h6.5a6.5 6.5 0 1 1-6.5 6.5z"/>
-  <text x="40" y="26" font-family="Inter Tight, Inter, system-ui, sans-serif" font-size="30" font-weight="600" letter-spacing="-.9">ddai</text>
+  <text x="40" y="26" font-family="Inter Tight, Inter, system-ui, sans-serif" font-size="30" font-weight="600" letter-spacing="-.9">Kløver</text>
 </svg>

@@ -1,4 +1,4 @@
-// ddai-proxy – Cloudflare Worker foran Regnskapsregisteret.
+// klover-proxy – Cloudflare Worker foran Regnskapsregisteret.
 // Regnskapsregisteret sender ikke CORS-headere, så nettleseren kan ikke kalle det direkte.
 // Workeren slipper bare gjennom GET /regnskap/{orgnr} og cacher svaret i ett døgn.
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };

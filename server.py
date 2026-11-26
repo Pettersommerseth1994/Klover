@@ -1,4 +1,4 @@
-"""Lokal utviklingsserver for ddai.
+"""Lokal utviklingsserver for Kløver.
 
 Serverer filene i denne mappen og videresender /api/* til data.brreg.no
 (Brreg avviser kall direkte fra nettleseren på grunn av CORS).
@@ -40,5 +40,5 @@ class H(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"ddai kjører på http://localhost:{PORT}")
+    print(f"Kløver kjører på http://localhost:{PORT}")
     http.server.ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()

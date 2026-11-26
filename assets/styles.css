@@ -1,4 +1,4 @@
-/* ddai – designsystem hentet fra Stetinden Studio (farger, font, glass, stjernefelt) */
+/* Kløver – designsystem hentet fra Stetinden Studio (farger, font, glass, stjernefelt) */
 :root{
   --ac:#EF7140;--ink:#111;--mut:#6b6f76;--ln:#e3e3e3;--bg:#FEFDFA;--bg2:#F7F6F1;--peach:#FDE3D5;
   --star:#cfcfcf;--up:#1E8E4E;--down:#D23F31;--dark:#141414;--cream:#F4F1EA;
@@ -93,7 +93,7 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 
 /* Hero */
 .hero{position:relative;min-height:min(92svh,940px);display:flex;align-items:center;overflow:hidden;padding:130px 0 90px}
-.hero .field{-webkit-mask-image:radial-gradient(ellipse 70% 62% at 50% 46%,#000 22%,rgba(0,0,0,.45) 58%,transparent 100%);mask-image:radial-gradient(ellipse 70% 62% at 50% 46%,#000 22%,rgba(0,0,0,.45) 58%,transparent 100%)}
+.hero .field{-webkit-mask-image:radial-gradient(ellipse 44% 46% at 50% 47%,transparent 0%,transparent 38%,rgba(0,0,0,.35) 68%,#000 100%),linear-gradient(to bottom,#000 72%,transparent 100%);-webkit-mask-composite:source-in;mask-image:radial-gradient(ellipse 44% 46% at 50% 47%,transparent 0%,transparent 38%,rgba(0,0,0,.35) 68%,#000 100%),linear-gradient(to bottom,#000 72%,transparent 100%);mask-composite:intersect}
 .hero .wrap{position:relative;z-index:2;width:100%;text-align:center}
 .eb{display:inline-flex;align-items:center;gap:10px;padding:6px 14px;border-radius:999px;font-size:13px;margin-bottom:30px;opacity:0;filter:blur(10px);transform:translateY(.5em);animation:chin .9s var(--ease) .9s both}
 .eb i{width:7px;height:7px;border-radius:50%;background:var(--ac);box-shadow:0 0 0 0 rgba(239,113,64,.5);animation:ping 2.4s infinite}
