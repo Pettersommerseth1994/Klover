@@ -410,11 +410,10 @@ async function home() {
   <section class="hero" aria-labelledby="h-hero"><canvas class="field" aria-hidden="true"></canvas>
     ${twinkles([[12, 24, 16, 0], [86, 18, 12, -2], [78, 72, 18, -4], [18, 76, 10, -1], [50, 12, 9, -3]])}
     <div class="wrap">
-      <div class="eb glass-hi"><i></i><span id="live">Åpne data fra Brønnøysundregistrene</span></div>
+      <div class="eb glass-hi"><i></i><span>Lansering!</span></div>
       <h1 class="h1" id="h-hero" aria-label="${words.join(' ')}">${words.map((w, i) => `<span class="w" aria-hidden="true"><span class="wi" style="--i:${i}">${w}</span></span>`).join(' ')}</h1>
       <p class="lead">Søk blant alle norske virksomheter. Se regnskap, eiere og topplister – med forklaringer på det som er vanskelig.</p>
       <div id="hs"></div>
-      <div class="tries"><span>Prøv:</span>${EXAMPLES.map(x => `<a class="chip" href="${x.href}">${x.kind === 'pe' ? ic('user') : ''}${esc(x.title)}</a>`).join('')}</div>
     </div>
     <a class="scroll-cue" href="javascript:void 0" data-scroll="#tl-prev" aria-label="Gå til topplister">Utforsk<i></i></a>
   </section>
@@ -456,7 +455,6 @@ async function home() {
   $('[data-scroll]').addEventListener('click', () => $('#tl-prev').scrollIntoView({ behavior: 'smooth' }));
   api('enhetsregisteret/api/enheter?size=1').then(d => {
     const n = d?.page?.totalElements; if (!n) return;
-    $('#live') && ($('#live').textContent = `${nf.format(n)} virksomheter · åpne data fra Brønnøysund`);
     const el = $('#n-tot'); if (el) { el.dataset.n = n; if (el.closest('.in')) el.textContent = nf.format(n); }
   });
   await loadTop();
@@ -636,7 +634,7 @@ function chartSVG(ys, key, si, cw = 820) {
   const label = METRICS.find(m => m[0] === key)[1];
   const vals = ys.map(y => y[key]);
   const T = ticks(Math.min(0, ...vals.filter(v => v != null)), Math.max(0, ...vals.filter(v => v != null)));
-  const W = Math.max(300, Math.round(cw)), sm = W < 560, H = sm ? 240 : 300, L = sm ? 50 : 64, R = 8, Tp = 30, B = 40, lo = T[0], hi = T.at(-1);
+  const W = Math.max(300, Math.round(cw)), sm = W < 560, H = sm ? 200 : 230, L = sm ? 50 : 64, R = 8, Tp = 30, B = 40, lo = T[0], hi = T.at(-1);
   const Y = v => Tp + (hi - v) / (hi - lo) * (H - Tp - B);
   const slot = (W - L - R) / ys.length, bw = Math.min(96, slot * .5);
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)} per år">`;
@@ -664,21 +662,31 @@ const ROWS = [
   ['g', 'Nøkkeltall'], ['Driftsmargin', 'r_margin', 0, '%'], ['Resultatmargin', 'r_nm', 0, '%'], ['Egenkapitalandel', 'r_ek', 0, '%'], ['Totalkapitalrentabilitet', 'r_tkr', 0, '%'],
   ['Egenkapitalrentabilitet', 'r_ekr', 0, '%'], ['Likviditetsgrad 1', 'r_lik', 0, 'x'], ['Lønn i % av inntekter', 'r_lonn', 0, '%'],
 ];
-function finTable(ys, si) {
+function finTable(ys, si, cmp) {
   const cols = ys.map((y, i) => ({ ...y, i })).reverse();
   const big = Math.max(...ys.map(y => Math.abs(y.rev || 0)), ...ys.map(y => Math.abs(y.ass || 0)));
   const unit = big >= 1e7 ? 1000 : 1;
+  const na = '<span class="cd na">–</span>';
+  // Endring fra året før: grønn pil opp eller rød pil ned
+  const delta = (v, p, u) => {
+    if (v == null || p == null) return na;
+    let d, txt;
+    if (u === '%') { d = v - p; txt = dec(Math.abs(d), 1) + ' pp'; }
+    else if (u === 'x') { d = v - p; txt = dec(Math.abs(d), 2); }
+    else { if (!p) return na; d = (v - p) / Math.abs(p) * 100; txt = dec(Math.abs(d), 1) + ' %'; }
+    if (Math.abs(d) < .05) return '<span class="cd">±0</span>';
+    return `<span class="cd ${d > 0 ? 'up' : 'dn'}" aria-label="${d > 0 ? 'opp' : 'ned'} ${txt}">${d > 0 ? '▲' : '▼'} ${txt}</span>`;
+  };
   let html = '', grp = null;
   for (const [label, key, sum, u] of ROWS) {
     if (label === 'g') { grp = `<tr class="grp"><td colspan="${cols.length + 1}">${key}</td></tr>`; continue; }
     if (ys.every(y => y[key] == null)) continue;
     if (grp) { html += grp; grp = null; }
     html += `<tr class="${sum ? 'sum' : ''}"><td><span class="rl">${label}${info(key, label)}</span></td>${cols.map(y => {
-      const v = y[key], p = ys[y.i - 1]?.[key], on = y.i === si;
-      if (v == null) return `<td class="na ${on ? 'on' : ''}">–</td>`;
-      const txt = u === '%' ? pc(v) : u === 'x' ? dec(v, 2) : nf.format(Math.round(v / unit));
-      const c = on && sum && !u && p ? chg(v, p) : null;
-      return `<td class="${on ? 'on' : ''}">${txt}${c != null ? `<small>${arrow(c)}</small>` : ''}</td>`;
+      const v = y[key], on = y.i === si;
+      const txt = v == null ? '–' : u === '%' ? pc(v) : u === 'x' ? dec(v, 2) : nf.format(Math.round(v / unit));
+      const d = cmp ? (y.i > 0 ? delta(v, ys[y.i - 1][key], u) : '<span class="cd"></span>') : '';
+      return `<td class="${on ? 'on' : ''}${v == null ? ' na' : ''}">${txt}${d}</td>`;
     }).join('')}</tr>`;
   }
   return { html: `<div class="tbl-wrap"><table class="fin"><thead><tr><th scope="col">${unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kr'}</th>${cols.map(y => `<th scope="col" class="${y.i === si ? 'on' : ''}" data-yi="${y.i}" tabindex="0" aria-label="Velg ${y.y}">${y.y}</th>`).join('')}</tr></thead><tbody>${html}</tbody></table></div>`, unit };
@@ -687,7 +695,7 @@ function finTable(ys, si) {
 const OWN_C = ['#EF7140', '#111', '#6b6f76', '#cfcfcf', '#9a9ea4'];
 function ownershipBlock(id, name) {
   const direct = ownersOf(id), hold = holdingsOf(id);
-  const head = `<div class="block-h"><div><div class="lab nl" style="margin-bottom:10px">Eiere</div><h2 class="h2">Hvem eier ${esc(name)}?</h2><p>Endelige eiere regnes ut gjennom alle ledd – også via holdingselskaper.</p></div>${direct.length || hold.length ? '<span class="demo">Eksempeldata</span>' : ''}</div>`;
+  const head = `<div class="block-h"><div><h2 class="h2">Hvem eier ${esc(name)}?</h2><p>Endelige eiere regnes ut gjennom alle ledd, også via holdingselskaper.</p></div>${direct.length || hold.length ? '<span class="demo">Eksempeldata</span>' : ''}</div>`;
   if (!direct.length && !hold.length) return head + `<div class="glass card" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:240px"><b style="font-weight:500;font-size:18px">Eierdata er ikke koblet på ennå</b><p class="muted" style="margin-top:4px">Aksjonærregisteret hentes fra Skatteetaten som en årlig fil og må vurderes opp mot personvern før det vises.</p></div><a class="btn" href="#/selskap/935851076">Se eksempelet ${ic('arrow')}</a></div>`;
   const ult = groupUltimate(id), ent = E(id);
   const via = u => u.paths.map(p => (p.chain.length === 1 ? `${pc(p.pct)} direkte` : `${pc(p.pct)} via ${p.chain.slice(0, -1).map(e => esc(E(e.eier).navn)).reverse().join(' → ')}`)).join(' · ');
@@ -703,14 +711,14 @@ function ownershipBlock(id, name) {
 function rolesBlock(ro) {
   const gs = (ro?.rollegrupper || []).map(gr => ({ t: gr.type.beskrivelse, r: gr.roller.filter(r => !r.fratraadt && !r.avregistrert) })).filter(x => x.r.length);
   const people = Object.entries(OWN.enheter).filter(([, e]) => e.type === 'person');
-  const body = gs.length ? gs.map(gr => `<div class="lab nl" style="margin:24px 0 12px">${esc(gr.t)}</div><div class="roles">${gr.r.map(r => {
+  const body = gs.length ? gs.map(gr => `<div class="lab nl" style="margin:16px 0 8px">${esc(gr.t)}</div><div class="roles">${gr.r.map(r => {
     const n = r.person ? [r.person.navn?.fornavn, r.person.navn?.mellomnavn, r.person.navn?.etternavn].filter(Boolean).join(' ') : nice([].concat(r.enhet?.navn || []).join(' '));
     const yr = r.person?.fodselsdato ? ` · f. ${r.person.fodselsdato.slice(0, 4)}` : '';
     const match = people.find(([, e]) => e.navn.toLowerCase() === n.toLowerCase());
     const link = match ? `#/person/${match[0]}` : r.enhet?.organisasjonsnummer ? `#/selskap/${r.enhet.organisasjonsnummer}` : '';
     return `<${link ? `a href="${link}"` : 'div'} class="role glass"><span class="av ${r.person ? 'pe' : ''}">${esc(ini(n))}</span><div><b>${esc(n)}</b><span>${esc(r.type.beskrivelse)}${yr}${match ? ' · se eierskap →' : ''}</span></div></${link ? 'a' : 'div'}>`;
   }).join('')}</div>`).join('') : '<p class="muted">Ingen roller registrert.</p>';
-  return `<div class="block-h"><div><div class="lab nl" style="margin-bottom:10px">Roller</div><h2 class="h2">Hvem leder selskapet?</h2><p>Styre, ledelse, revisor og regnskapsfører fra Enhetsregisteret.</p></div></div>${body}`;
+  return `<div class="block-h"><div><h2 class="h2">Hvem leder selskapet?</h2><p>Styre, ledelse, revisor og regnskapsfører fra Enhetsregisteret.</p></div></div>${body}`;
 }
 
 function skeleton() {
@@ -731,7 +739,8 @@ async function company(id) {
   document.title = `${name} – ddai`;
   recent.add({ href: `#/selskap/${id}`, title: name, sub: demo ? 'Eksempelselskap' : `${fmtOrg(id)} · ${nice(ent.forretningsadresse?.poststed || '')}`, kind: 'co' });
   const ys = parseYears(rs), ult = groupUltimate(id), F = facts(name, ys, ent, ro, ult);
-  let si = ys.length - 1, metric = 'rev';
+  let si = ys.length - 1, metric = 'rev', cmp = true;
+  try { cmp = localStorage.getItem('ddai.cmp') !== '0'; } catch (e) { /* privat modus */ }
   const hn = (ent?.historiskeNavn || []).map(h => nice(h.navn));
   const tabs = demo ? [['eiere', 'Eiere']] : [['oversikt', 'Oversikt'], ['innsikt', 'Innsikt'], ['regnskap', 'Regnskap'], ['eiere', 'Eiere'], ['roller', 'Roller']];
   const dl = demo ? [['Type', 'Oppdiktet eksempelselskap'], ['Sted', E(id).sted]] : [
@@ -740,30 +749,30 @@ async function company(id) {
     ['Ansatte', ent.harRegistrertAntallAnsatte ? nf.format(ent.antallAnsatte) : 'Ikke registrert'], ['Kommune', esc(nice(ent.forretningsadresse?.kommune || '–'))],
     ['Revisjon', ys.at(-1)?.fravalg ? 'Fravalgt' : ys.length ? 'Revidert' : '–'],
   ];
-  V.innerHTML = `
+  V.innerHTML = `<div class="co-page">
   <section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap">
     <div class="lab nl"><a href="#/" class="lnk" style="border:0;padding:0">ddai</a><span>/</span><span>${demo ? 'Eksempelselskap' : esc(ent.naeringskode1?.beskrivelse || 'Selskap')}</span></div>
     <div class="co-top">
       <div><h1>${esc(name)}</h1>${hn.length ? `<p class="was">Tidligere navn: ${hn.map(esc).join(', ')}</p>` : ''}
         <div class="chips" style="margin-top:18px">${demo ? '<span class="demo">Eksempeldata</span>' : ''}${ent?.konkurs || ent?.underAvvikling || ent?.underTvangsavviklingEllerTvangsopplosning ? '<span class="chip ex">Konkurs eller avvikling</span>' : ''}${ent?.hjemmeside ? `<a class="chip" href="https://${esc(ent.hjemmeside.replace(/^https?:\/\//, ''))}" target="_blank" rel="noopener">${esc(ent.hjemmeside)} ${ic('ext')}</a>` : ''}</div>
-        ${ent?.aktivitet?.length ? `<p class="desc">${esc(ent.aktivitet.join(' '))}</p>` : ''}</div>
+        ${ent?.aktivitet?.length ? `<p class="desc" id="desc">${esc(ent.aktivitet.join(' ').replace(/\s+/g, ' ').trim())}</p>${ent.aktivitet.join(' ').length > 150 ? '<button class="lnk" type="button" data-more style="font-size:13px;margin-top:6px">Vis mer</button>' : ''}` : ''}</div>
       <aside class="facts glass card" aria-label="Nøkkelinformasjon"><dl>${dl.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></aside>
     </div></div></section>
   <div class="wrap" style="padding-bottom:40px">
     <nav class="subnav glass-hi" aria-label="Seksjoner"><div class="tabs">${tabs.map(([k, t], i) => `<a href="javascript:void 0" data-go="${k}" class="${i ? '' : 'on'}">${t}</a>`).join('')}</div>
       ${ys.length ? `<div class="yearnav" role="group" aria-label="Velg regnskapsår"><span class="lbl">Regnskapsår</span><button class="rbtn" data-y="-1" aria-label="Forrige år">${ic('left')}</button><b class="num" aria-live="polite" id="yr"></b><button class="rbtn" data-y="1" aria-label="Neste år">${ic('right')}</button></div>` : ''}</nav>
-    ${!demo ? `<section class="block" id="oversikt"><div class="block-h"><div><div class="lab nl" style="margin-bottom:10px">Oversikt</div><h2 class="h2" id="ov-h"></h2><p id="ov-p"></p></div></div><div class="kgrid" id="kpis"></div></section>` : ''}
-    ${F.length ? `<section class="block" id="innsikt"><div class="block-h"><div><div class="lab nl" style="margin-bottom:10px">Innsikt</div><h2 class="h2">Kjappe fakta</h2><p>Bla gjennom det regnskapet faktisk forteller om ${esc(name)}.</p></div>
+    ${!demo ? `<section class="block" id="oversikt"><div class="block-h"><div><h2 class="h2" id="ov-h"></h2><p id="ov-p"></p></div></div><div class="kgrid" id="kpis"></div></section>` : ''}
+    ${F.length ? `<section class="block" id="innsikt"><div class="block-h"><div><h2 class="h2">Kjappe fakta</h2><p>Bla gjennom det regnskapet faktisk forteller om ${esc(name)}.</p></div>
       <div class="ins-ctl"><div class="trk" aria-hidden="true"><i></i></div><span class="muted num" style="font-size:13px;min-width:48px;text-align:right" data-cnt></span><button class="rbtn" data-prev aria-label="Forrige fakta">${ic('left')}</button><button class="rbtn" data-next aria-label="Neste fakta">${ic('right')}</button></div></div>
       <div class="ins"><div class="ins-track" tabindex="0" aria-label="Fakta om ${esc(name)}">${F.map((f, i) => `<article class="fact glass"><span class="idx num">${String(i + 1).padStart(2, '0')}/${String(F.length).padStart(2, '0')}</span><div class="k">${STAR}${esc(f.k)}</div><div class="big num ${f.sm ? 'sm' : ''}">${esc(f.big)}</div><p>${f.text}</p></article>`).join('')}</div></div></section>` : ''}
-    ${!demo ? `<section class="block" id="regnskap"><div class="block-h"><div><div class="lab nl" style="margin-bottom:10px">Regnskap</div><h2 class="h2">Tallene år for år</h2><p>Velg et nøkkeltall, og klikk på et år i grafen eller tabellen for å bla tilbake i tid. Trykk på <span class="info" style="display:inline-grid;vertical-align:-3px">i</span> for å se hva en post betyr.</p></div></div>
+    ${!demo ? `<section class="block" id="regnskap"><div class="block-h"><div><h2 class="h2">Tallene år for år</h2><p>Klikk på et år for å bla tilbake i tid. Trykk på <span class="info" style="display:inline-grid;vertical-align:-3px">i</span> for å se hva en post betyr.</p></div></div>
       ${ys.length ? `<div class="chart-card glass" style="margin-bottom:20px"><div class="chart-h"><div class="chart-v" id="cv"></div><div class="seg" role="tablist" aria-label="Velg nøkkeltall">${METRICS.map(([k, t]) => `<button role="tab" data-m="${k}" class="${k === metric ? 'on' : ''}" aria-selected="${k === metric}">${t}</button>`).join('')}</div></div><div class="chart" id="chart" tabindex="0" aria-label="Graf. Bruk piltastene for å bytte år."></div>${ys.length === 1 ? '<p class="chart-note">Selskapet har levert ett regnskap så langt. Grafen fylles på år for år.</p>' : ''}</div>
-        <div class="tbl-card glass"><div id="tbl"></div><div class="tbl-foot"><span id="unit"></span><span>Kilde: Regnskapsregisteret${LOCAL || PROXY ? '' : ' (lagret utdrag)'} · Klikk på et år for å velge det</span></div></div>`
+        <div class="tbl-card glass"><div class="tbl-bar"><span id="unit" class="muted"></span><button class="switch" type="button" role="switch" aria-checked="${cmp}" data-cmp><span class="tr" aria-hidden="true"></span>Sammenlign med året før</button></div><div id="tbl"></div><div class="tbl-foot"><span>Kilde: Regnskapsregisteret${LOCAL || PROXY ? '' : ' (lagret utdrag)'}</span><span>Klikk på et år for å velge det</span></div></div>`
         : `<div class="glass card empty">${rs?.mangler ? 'Regnskapet til dette selskapet er ikke med i den publiserte demoen ennå. Den har lagret regnskap for selskapene i topplistene.' : 'Ingen regnskap funnet i Regnskapsregisteret.'}</div>`}
       </section>` : ''}
     <section class="block" id="eiere">${ownershipBlock(id, name)}</section>
     ${!demo ? `<section class="block" id="roller">${rolesBlock(ro)}</section>` : ''}
-  </div>`;
+  </div></div>`;
   starField($('.ph .field'), { mode: 'breathe', sp: 11 });
 
   const draw = () => {
@@ -778,16 +787,16 @@ async function company(id) {
       $('#kpis').innerHTML = K.map(([k, t]) => {
         const v = L[k], p = Pv?.[k], pct = k.startsWith('r_');
         const vals = ys.map(y => y[k] ?? 0), mx = Math.max(...vals.map(Math.abs), 1);
-        const d = pct ? (v != null && p != null ? `${v - p >= 0 ? '▲' : '▼'} ${dec(Math.abs(v - p), 1)} poeng` : '') : arrow(chg(v, p));
+        const d = pct ? (v != null && p != null ? `<span class="${v - p >= 0 ? 'up' : 'dn'}">${v - p >= 0 ? '▲' : '▼'} ${dec(Math.abs(v - p), 1)} poeng</span>` : '') : arrow(chg(v, p));
         return `<div class="kc glass"><div class="k">${t}${info(k === 'eq' ? 'eq' : k, t)}</div><div class="v num">${pct ? pc(v, 0) : kr(v)}</div>
           <div class="d"><span>${v == null && k === 'div' ? 'Krever to års regnskap' : d ? `${d} <span class="muted">fra ${Pv.y}</span>` : ''}</span>${ys.length > 1 ? `<span class="spark" aria-hidden="true">${vals.map((x, i) => `<i class="${i === si ? 'on' : ''}" style="height:${Math.max(8, Math.abs(x) / mx * 100)}%"></i>`).join('')}</span>` : ''}</div></div>`;
       }).join('');
     }
     if ($('#chart')) {
       const isPct = metric.startsWith('r_'), v = L[metric], p = Pv?.[metric];
-      $('#cv').innerHTML = `<strong class="num">${isPct ? pc(v) : kr(v)}</strong><span>${Pv && v != null && p != null ? (isPct ? `${v - p >= 0 ? '▲' : '▼'} ${dec(Math.abs(v - p), 1)} poeng` : arrow(chg(v, p))) + ` <span class="muted">fra ${Pv.y}</span>` : `<span class="muted">${METRICS.find(m => m[0] === metric)[1]} ${L.y}</span>`}</span>`;
+      $('#cv').innerHTML = `<strong class="num">${isPct ? pc(v) : kr(v)}</strong><span>${Pv && v != null && p != null ? (isPct ? `<span class="${v - p >= 0 ? 'up' : 'dn'}">${v - p >= 0 ? '▲' : '▼'} ${dec(Math.abs(v - p), 1)} poeng</span>` : arrow(chg(v, p))) + ` <span class="muted">fra ${Pv.y}</span>` : `<span class="muted">${METRICS.find(m => m[0] === metric)[1]} ${L.y}</span>`}</span>`;
       $('#chart').innerHTML = chartSVG(ys, metric, si, $('#chart').clientWidth);
-      const t = finTable(ys, si); $('#tbl').innerHTML = t.html; $('#unit').textContent = t.unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kroner';
+      const t = finTable(ys, si, cmp); $('#tbl').innerHTML = t.html; $('#unit').innerHTML = cmp ? 'Endring fra året før: <span class="up">▲ økning</span> · <span class="dn">▼ nedgang</span>' : (t.unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kroner');
     }
   };
   const setYear = i => { si = Math.max(0, Math.min(ys.length - 1, i)); tipHide(); draw(); };
@@ -798,6 +807,10 @@ async function company(id) {
     const m = e.target.closest('[data-m]'); if (m) { metric = m.dataset.m; $$('[data-m]').forEach(x => { x.classList.toggle('on', x === m); x.setAttribute('aria-selected', x === m); }); draw(); }
     const go = e.target.closest('[data-go]'); if (go) $('#' + go.dataset.go)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const tr = e.target.closest('tr[data-href]'); if (tr) location.hash = tr.dataset.href;
+    const sw = e.target.closest('[data-cmp]');
+    if (sw) { cmp = !cmp; sw.setAttribute('aria-checked', cmp); try { localStorage.setItem('ddai.cmp', cmp ? '1' : '0'); } catch (er) { /* */ } draw(); }
+    const mo = e.target.closest('[data-more]');
+    if (mo) { const d = $('#desc'); d.classList.toggle('open'); mo.textContent = d.classList.contains('open') ? 'Vis mindre' : 'Vis mer'; }
     const cp = e.target.closest('[data-copy]');
     if (cp) navigator.clipboard?.writeText(cp.dataset.copy).then(() => { cp.innerHTML = ic('check'); cp.setAttribute('aria-label', 'Kopiert'); setTimeout(() => { cp.innerHTML = ic('copy'); cp.setAttribute('aria-label', 'Kopier organisasjonsnummer'); }, 1500); });
   });

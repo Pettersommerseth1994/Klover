@@ -1,3 +1,7 @@
 .DS_Store
 __pycache__/
 *.pyc
+
+# Aksjonærregisteret inneholder personopplysninger – skal aldri i det offentlige repoet
+data/aksjonaerregister/
+*.csv
