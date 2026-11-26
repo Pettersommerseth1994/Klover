@@ -25,7 +25,7 @@ GitHub Pages kan bare servere statiske filer, så `server.py` kjører ikke der. 
 cd proxy && npx wrangler login && npx wrangler deploy
 ```
 
-Proxyen kjører på `https://klover-proxy.ddai-no.workers.dev`, og adressen står i `PROXY` øverst i `assets/app.js`. Da henter den publiserte siden regnskap for alle selskaper, og faller tilbake til det lagrede utdraget hvis proxyen ikke svarer.
+Proxyen kjører på `https://klover-proxy.klover.workers.dev`, og adressen står i `PROXY` øverst i `assets/app.js`. Da henter den publiserte siden regnskap for alle selskaper, og faller tilbake til det lagrede utdraget hvis proxyen ikke svarer.
 
 ## Innhold
 
