@@ -1,0 +1,27 @@
+{
+  "merknad": "EKSEMPELDATA. Aksjonærregisteret er ikke koblet på ennå. Navn på personer og holdingselskaper er oppdiktet (unntatt Efjord Extreme AS, som er et ekte selskap, men eierandelene er oppdiktet).",
+  "enheter": {
+    "p-petter": { "type": "person", "navn": "Petter Sommerseth", "sted": "Oslo" },
+    "p-kari": { "type": "person", "navn": "Kari Nordmann", "sted": "Bergen" },
+    "p-ola": { "type": "person", "navn": "Ola Nordmann", "sted": "Narvik" },
+    "d-breskygge": { "type": "selskap", "navn": "Breskygge Holding AS", "sted": "Oslo", "aksjer": 100 },
+    "d-fjordkant": { "type": "selskap", "navn": "Fjordkant Invest AS", "sted": "Oslo", "aksjer": 1000 },
+    "d-fjellvind": { "type": "selskap", "navn": "Fjellvind Eiendom AS", "sted": "Narvik", "aksjer": 2000 },
+    "d-fjellvind-drift": { "type": "selskap", "navn": "Fjellvind Drift AS", "sted": "Narvik", "aksjer": 100 },
+    "d-tindetopp": { "type": "selskap", "navn": "Tindetopp Utleie AS", "sted": "Tromsø", "aksjer": 500 },
+    "935851076": { "type": "selskap", "navn": "Efjord Extreme AS", "sted": "Oslo", "aksjer": 1000, "ekte": true }
+  },
+  "eierskap": [
+    { "eier": "p-petter", "selskap": "d-breskygge", "andel": 100 },
+    { "eier": "p-petter", "selskap": "d-fjordkant", "andel": 50 },
+    { "eier": "p-kari", "selskap": "d-fjordkant", "andel": 50 },
+    { "eier": "d-breskygge", "selskap": "935851076", "andel": 60 },
+    { "eier": "d-fjordkant", "selskap": "935851076", "andel": 30 },
+    { "eier": "p-ola", "selskap": "935851076", "andel": 10 },
+    { "eier": "d-fjordkant", "selskap": "d-fjellvind", "andel": 50 },
+    { "eier": "p-ola", "selskap": "d-fjellvind", "andel": 50 },
+    { "eier": "d-fjellvind", "selskap": "d-fjellvind-drift", "andel": 100 },
+    { "eier": "d-breskygge", "selskap": "d-tindetopp", "andel": 40 },
+    { "eier": "p-kari", "selskap": "d-tindetopp", "andel": 60 }
+  ]
+}
