@@ -25,7 +25,7 @@ GitHub Pages kan bare servere statiske filer, så `server.py` kjører ikke der. 
 cd proxy && npx wrangler login && npx wrangler deploy
 ```
 
-Lim inn adressen den får (for eksempel `https://ddai-proxy.<konto>.workers.dev`) i `PROXY` øverst i `assets/app.js`. Da henter den publiserte siden regnskap for alle selskaper, og faller tilbake til det lagrede utdraget hvis proxyen ikke svarer.
+Proxyen kjører på `https://ddai-proxy.ddai-no.workers.dev`, og adressen står i `PROXY` øverst i `assets/app.js`. Da henter den publiserte siden regnskap for alle selskaper, og faller tilbake til det lagrede utdraget hvis proxyen ikke svarer.
 
 ## Innhold
 
@@ -40,6 +40,6 @@ Lim inn adressen den får (for eksempel `https://ddai-proxy.<konto>.workers.dev`
 | Data | Kilde | Status |
 |---|---|---|
 | Selskapsinfo, roller | Enhetsregisteret | Live |
-| Regnskap (3 siste år) | Regnskapsregisteret | Live |
+| Regnskap (3 siste år) | Regnskapsregisteret via proxy | Live |
 | Topplister | Utvalg fra Brreg | ~1 400 selskaper |
 | Eierskap | Aksjonærregisteret (Skatteetaten) | Ikke koblet på – eksempeldata |

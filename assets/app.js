@@ -3,7 +3,7 @@
    Designsystem: Stetinden Studio (Inter Tight, #EF7140, glass, stjernefelt). */
 
 // Adressen til Cloudflare-proxyen for Regnskapsregisteret (se proxy/). Tom = bruk lagret utdrag.
-const PROXY = '';
+const PROXY = 'https://ddai-proxy.ddai-no.workers.dev';
 
 // ---------- Hjelpere ----------
 const $ = (s, r = document) => r.querySelector(s);
