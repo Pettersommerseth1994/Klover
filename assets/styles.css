@@ -30,7 +30,7 @@ main{flex:1}
 /* Header */
 .hd{position:fixed;top:10px;left:var(--pad);right:var(--pad);z-index:50;display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:52px;padding:7px 7px 7px 22px;border-radius:999px;transition:left .8s var(--ease),right .8s var(--ease),transform .45s var(--ease)}
 body.scr .hd{left:max(var(--pad),calc(50% - var(--max)/2 + var(--pad)));right:max(var(--pad),calc(50% - var(--max)/2 + var(--pad)))}
-.lgo{display:inline-flex;align-items:center;gap:.4em;font-size:21px;font-weight:600;letter-spacing:-.03em;line-height:1}
+.lgo{display:inline-flex;align-items:center;gap:calc(.4em - 2px);font-size:21px;font-weight:600;letter-spacing:-.03em;line-height:1}
 .lgo svg{width:.95em;height:.95em;fill:currentColor;transition:transform .7s var(--ease)}
 .lgo:hover svg{transform:rotate(90deg)}
 .hd nav{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:26px;font-size:15px}
