@@ -341,13 +341,13 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .tbl-card{padding:0;overflow:hidden}
 .tbl-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--ln);font-size:13px}
 .tbl-wrap{overflow-x:auto}
-table.fin{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;min-width:480px}
+table.fin{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 table.fin th,table.fin td{padding:0 14px;height:31px;border-bottom:1px solid #eeeeea;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 table.fin thead th{position:sticky;top:0;background:rgba(254,253,250,.96);font-size:12px;font-weight:500;color:var(--mut);height:36px;border-bottom:1px solid var(--ink);cursor:pointer;z-index:2}
 table.fin thead th.on{color:var(--ink);font-weight:600;box-shadow:inset 0 -3px 0 var(--ac)}
-table.fin th:first-child,table.fin td:first-child{text-align:left;position:sticky;left:0;background:var(--bg);z-index:1;min-width:210px}
+table.fin th:first-child,table.fin td:first-child{text-align:left;position:sticky;left:0;background:var(--bg);z-index:1}
 /* Årskolonnene: like brede, samlet til høyre. Tallet har fast bredde, endringen fast plass ved siden av */
-table.fin{--cdw:72px;--cdg:10px}
+table.fin{--cdw:64px;--cdg:10px}
 table.fin th:not(:first-child),table.fin td:not(:first-child){width:1%;padding-left:22px}
 table.fin thead th:not(:first-child){padding-right:calc(14px + var(--cdw) + var(--cdg))}
 table.fin .cv{display:inline-block;min-width:var(--vw,8ch);text-align:right}
@@ -363,6 +363,22 @@ table.fin td.na{color:#c0c0c0}
 .cd{display:inline-block;min-width:var(--cdw,66px);text-align:right;font-size:12px;font-weight:500;margin-left:var(--cdg,10px);color:var(--mut);transition:opacity .2s}
 table.fin.nocmp .cd{opacity:0}
 .cd.up{color:var(--up)}.cd.dn{color:var(--down)}.cd.na{color:#cfcfcf}
+/* For trangt til tre år med endring ved siden av (fitFin i app.js): endringen legges under tallet */
+table.fin.fin-stack th:not(:first-child),table.fin.fin-stack td:not(:first-child){padding-left:14px}
+table.fin.fin-stack thead th:not(:first-child){padding-right:14px}
+table.fin.fin-stack tbody td{height:auto;padding-top:7px;padding-bottom:7px;line-height:1.3;vertical-align:top}
+table.fin.fin-stack .cd{display:block;min-width:0;margin:1px 0 0}
+table.fin.fin-stack.nocmp .cd{display:none}
+/* Fortsatt for trangt (mobil): bare valgt år vises – velg år i årsvelgeren */
+table.fin.fin-one{--cdw:58px;--cdg:4px}
+table.fin.fin-one th:not(:first-child):not(.on),table.fin.fin-one td:not(:first-child):not(.on){display:none}
+table.fin.fin-one th:first-child,table.fin.fin-one td:first-child{width:auto;white-space:normal;line-height:1.25;padding:6px 6px 6px 12px;height:auto;min-height:36px}
+table.fin.fin-one th,table.fin.fin-one td{height:38px}
+table.fin.fin-one th:not(:first-child),table.fin.fin-one td:not(:first-child){padding-left:2px;padding-right:8px}
+table.fin.fin-one thead th:not(:first-child){padding-right:calc(8px + var(--cdw) + var(--cdg))}
+table.fin.fin-one .rl{gap:5px}
+/* Pil for endring: skrå strek opp eller ned */
+.ar{display:inline-block;width:.9em;height:.9em;margin-right:.22em;vertical-align:-.06em;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .tbl-foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:10px 14px;font-size:12px;color:var(--mut);background:var(--bg)}
 .switch{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:500;user-select:none}
 .switch .tr{width:34px;height:20px;border-radius:99px;background:#d9d9d5;position:relative;transition:background .2s;flex:none}
@@ -644,14 +660,6 @@ table.own-t tbody[hidden]{display:none}
   .ft .cols{grid-template-columns:1fr}
   .tl-prev .card{padding:20px}
   .fact .big{font-size:38px}
-  /* Regnskapstabellen viser ett år om gangen på mobil – velg år i årsvelgeren */
-  table.fin{min-width:0;--cdw:58px;--cdg:4px}
-  table.fin th:not(:first-child):not(.on),table.fin td:not(:first-child):not(.on){display:none}
-  table.fin th:first-child,table.fin td:first-child{min-width:0;width:auto;white-space:normal;line-height:1.25;padding:6px 6px 6px 12px;height:auto;min-height:36px}
-  table.fin th,table.fin td{height:38px}
-  table.fin th:not(:first-child),table.fin td:not(:first-child){padding-left:2px;padding-right:8px}
-  table.fin thead th:not(:first-child){padding-right:calc(8px + var(--cdw) + var(--cdg))}
-  table.fin .rl{gap:5px}
   .tbl-bar{font-size:12px}
   .show-m{display:inline}.hide-m{display:none}
   .eb{border-radius:18px;font-size:13px;line-height:1.35}

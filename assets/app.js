@@ -29,7 +29,9 @@ function krShort(v) {
 const pc = (v, d = 1) => (v == null || !isFinite(v) ? '–' : dec(v, d) + ' %');
 const sgn = v => (v == null || !isFinite(v) ? '–' : (v > 0 ? '+' : v < 0 ? '−' : '') + dec(Math.abs(v), 1) + ' %');
 const chg = (a, b) => (a != null && b ? (a - b) / Math.abs(b) * 100 : null);
-const arrow = v => (v == null ? '' : `<span class="${v >= 0 ? 'up' : 'dn'}">${v >= 0 ? '▲' : '▼'} ${dec(Math.abs(v), 1)} %</span>`);
+// Skrå pil med strek: opp til høyre for økning, ned til høyre for nedgang
+const trend = up => `<svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="${up ? 'M3 9 9 3M4 3h5v5' : 'M3 3l6 6M9 4v5H4'}"/></svg>`;
+const arrow = v => (v == null ? '' : `<span class="${v >= 0 ? 'up' : 'dn'}">${trend(v >= 0)}${dec(Math.abs(v), 1)} %</span>`);
 const fmtOrg = o => String(o).replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
 const fmtDate = d => (d ? d.slice(0, 10).split('-').reverse().join('.') : '');
 const UP = new Set(['AS', 'ASA', 'ANS', 'DA', 'SA', 'BA', 'NUF', 'KS', 'IKS', 'A/S', 'HF', 'IL', 'BKS']);
@@ -794,7 +796,7 @@ function finTable(ys, si, cmp) {
     else if (u === 'x') { d = v - p; txt = dec(Math.abs(d), 2); }
     else { if (!p) return na; d = (v - p) / Math.abs(p) * 100; txt = dec(Math.abs(d), 1) + ' %'; }
     if (Math.abs(d) < .05) return '<span class="cd">±0</span>';
-    return `<span class="cd ${d > 0 ? 'up' : 'dn'}" aria-label="${d > 0 ? 'opp' : 'ned'} ${txt}">${d > 0 ? '▲' : '▼'} ${txt}</span>`;
+    return `<span class="cd ${d > 0 ? 'up' : 'dn'}" aria-label="${d > 0 ? 'opp' : 'ned'} ${txt}">${trend(d > 0)}${txt}</span>`;
   };
   const fmt = (v, u) => (v == null ? '–' : u === '%' ? pc(v) : u === 'x' ? dec(v, 2) : nf.format(Math.round(v / unit)));
   // Alle årskolonner får samme bredde: tallet får fast bredde (lengste tall i tabellen) og endringen fast plass ved siden av
@@ -813,6 +815,19 @@ function finTable(ys, si, cmp) {
   return { html: `<div class="tbl-wrap"><table class="fin${cmp ? '' : ' nocmp'}" style="--vw:${vw + 1}ch"><thead><tr><th scope="col">${unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kr'}</th>${cols.map(y => `<th scope="col" class="${y.i === si ? 'on' : ''}" data-yi="${y.i}" tabindex="0" aria-label="Velg ${y.y}">${y.y}</th>`).join('')}</tr></thead><tbody>${html}</tbody></table></div>`, unit };
 }
 
+// Regnskapstabellen skal aldri scrolle sidelengs. Blir den for bred, legges endringen under tallet,
+// og er det fortsatt for trangt (mobil), vises bare året som er valgt.
+function fitFin() {
+  const w = $('.tbl-wrap'), t = w && $('table.fin', w);
+  if (!t) return;
+  for (const c of ['', 'fin-stack', 'fin-one']) {
+    t.classList.remove('fin-stack', 'fin-one');
+    if (c) t.classList.add(c);
+    if (w.scrollWidth <= w.clientWidth + 1) break;
+  }
+}
+document.fonts?.ready.then(fitFin);
+
 const OWN_C = ['#EF7140', '#111', '#6b6f76', '#cfcfcf', '#9a9ea4', '#F7A27A'];
 const pcp = v => (v == null ? '–' : v < .01 ? '< 0,01 %' : pc(v, v < 1 ? 2 : 1));
 function ownershipBlock(own, name) {
@@ -830,7 +845,7 @@ function ownershipBlock(own, name) {
     if (own.src !== 'reg' || !own.prevYear) return '';
     if (d.prev == null) return `<span class="new">Ny i ${own.year}</span>`;
     const x = d.pct - d.prev;
-    return Math.abs(x) < .05 ? '' : `<span class="${x > 0 ? 'up' : 'dn'}">${x > 0 ? '▲' : '▼'} ${dec(Math.abs(x), 1)} pp</span>`;
+    return Math.abs(x) < .05 ? '' : `<span class="${x > 0 ? 'up' : 'dn'}">${trend(x > 0)}${dec(Math.abs(x), 1)} pp</span>`;
   };
   const sub = d => (d.type === 'p' ? [d.yr && `f. ${d.yr}`, d.place].filter(Boolean).join(' · ') : d.type === 'c' ? `Org.nr ${fmtOrg(d.id)}` : d.type === 'f' ? `Utenlandsk · ${esc(d.place)}` : d.type === 'self' ? 'Selskapets egne aksjer' : '');
   const tr = d => `<tr ${d.href ? `data-href="${d.href}"` : ''}><td><span class="who"><span class="av ${d.type === 'p' ? 'pe' : ''}">${esc(ini(d.name))}</span><span><b>${esc(d.name)}</b><small>${sub(d)}</small></span></span></td><td class="sh num">${d.shares != null ? nf.format(d.shares) : ''}</td><td class="num">${pcp(d.pct)}</td><td class="ch">${chg(d)}</td></tr>`;
@@ -955,14 +970,14 @@ async function company(id) {
       $('#kpis').innerHTML = K.map(([k, t]) => {
         const v = L[k], p = Pv?.[k], pct = k.startsWith('r_');
         const vals = ys.map(y => y[k] ?? 0), mx = Math.max(...vals.map(Math.abs), 1);
-        const d = pct ? (v != null && p != null ? `<span class="${v - p >= 0 ? 'up' : 'dn'}">${v - p >= 0 ? '▲' : '▼'} ${dec(Math.abs(v - p), 1)} poeng</span>` : '') : arrow(chg(v, p));
+        const d = pct ? (v != null && p != null ? `<span class="${v - p >= 0 ? 'up' : 'dn'}">${trend(v - p >= 0)}${dec(Math.abs(v - p), 1)} poeng</span>` : '') : arrow(chg(v, p));
         return `<div class="kc glass"><div class="k">${t}${info(k === 'eq' ? 'eq' : k, t)}</div><div class="v num">${pct ? pc(v, 0) : kr(v)}</div>
           <div class="d"><span>${v == null && k === 'div' ? 'Krever to års regnskap' : d ? `${d} <span class="muted">fra ${Pv.y}</span>` : ''}</span>${ys.length > 1 ? `<span class="spark" aria-hidden="true">${vals.map((x, i) => `<i class="${i === si ? 'on' : ''}" style="height:${Math.max(8, Math.abs(x) / mx * 100)}%"></i>`).join('')}</span>` : ''}</div></div>`;
       }).join('');
     }
     if ($('#chartbox')) {
       renderChart();
-      const t = finTable(ys, si, cmp); $('#tbl').innerHTML = t.html; unit = t.unit; setUnit();
+      const t = finTable(ys, si, cmp); $('#tbl').innerHTML = t.html; unit = t.unit; setUnit(); fitFin();
     }
   };
   // Grafen: nøkkeltall-meny til venstre og graf til høyre. På mobil ligger menyen over grafen og kan scrolles sidelengs.
@@ -970,7 +985,7 @@ async function company(id) {
   const chgTxt = k => {
     const v = ys[si][k], p = ys[si - 1]?.[k];
     if (v == null || p == null) return '';
-    if (k.startsWith('r_')) { const d = v - p; return `<span class="${d >= 0 ? 'up' : 'dn'}">${d >= 0 ? '▲' : '▼'} ${dec(Math.abs(d), 1)} pp</span>`; }
+    if (k.startsWith('r_')) { const d = v - p; return `<span class="${d >= 0 ? 'up' : 'dn'}">${trend(d >= 0)}${dec(Math.abs(d), 1)} pp</span>`; }
     return arrow(chg(v, p));
   };
   const renderChart = () => {
@@ -995,7 +1010,7 @@ async function company(id) {
     }
   };
   let unit = 1;
-  const setUnit = () => { const el = $('#unit'); if (el) el.innerHTML = cmp ? 'Endring fra året før: <span class="up">▲ økning</span> · <span class="dn">▼ nedgang</span>' : 'Slå på for å se endringen fra året før'; };
+  const setUnit = () => { const el = $('#unit'); if (el) el.innerHTML = cmp ? `Endring fra året før: <span class="up">${trend(1)}økning</span> · <span class="dn">${trend(0)}nedgang</span>` :'Slå på for å se endringen fra året før'; };
   const setYear = i => { si = Math.max(0, Math.min(ys.length - 1, i)); tipHide(); draw(); };
   onV('click', e => {
     const y = e.target.closest('[data-y]'); if (y) setYear(si + +y.dataset.y);
@@ -1059,6 +1074,13 @@ async function company(id) {
   spy();
   let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(draw, 150); }, { signal: pageAC.signal });
   draw();
+  // Tilpass regnskapstabellen på nytt når plassen den har endrer bredde (også første gang siden får bredde)
+  const tb = $('#tbl');
+  if (tb && window.ResizeObserver) {
+    let tw = 0;
+    const ro = new ResizeObserver(([e]) => { const w = Math.round(e.contentRect.width); if (w !== tw) { tw = w; fitFin(); } });
+    ro.observe(tb); pageAC.signal.addEventListener('abort', () => ro.disconnect());
+  }
 }
 
 // ---------- Person og eiertre ----------
