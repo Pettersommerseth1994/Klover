@@ -17,12 +17,20 @@ GitHub Pages kan bare servere statiske filer, så `server.py` kjører ikke der. 
 - Enhetsregisteret (søk, selskapsinfo, roller) kalles direkte fra nettleseren – det API-et støtter CORS.
 - Regnskapsregisteret sender ikke CORS-headere, så den publiserte siden leser regnskap fra `data/regnskap/{orgnr}.json`. Selskaper som ikke er med i utdraget viser en melding om det.
 
-For full dekning på nett trengs en liten proxy (for eksempel en Cloudflare Worker) foran Regnskapsregisteret.
+### Proxy for regnskap (Cloudflare Worker)
+
+`proxy/worker.js` er en liten Cloudflare Worker som slipper gjennom `GET /regnskap/{orgnr}` til Regnskapsregisteret, legger på CORS-headere og cacher svaret i ett døgn. Publiser den slik:
+
+```bash
+cd proxy && npx wrangler login && npx wrangler deploy
+```
+
+Lim inn adressen den får (for eksempel `https://ddai-proxy.<konto>.workers.dev`) i `PROXY` øverst i `assets/app.js`. Da henter den publiserte siden regnskap for alle selskaper, og faller tilbake til det lagrede utdraget hvis proxyen ikke svarer.
 
 ## Innhold
 
-- `index.html`, `assets/app.js`, `assets/styles.css` – appen (forside, topplister, selskapsside, eiersøk)
-- `assets/logo.svg`, `assets/favicon.svg` – logo. Ordmerket i `logo.svg` er tekst og trenger fonten Geist for å se riktig ut.
+- `index.html`, `assets/app.js`, `assets/styles.css` – appen (forside, topplister, selskapsside, eiersøk). Designsystemet er hentet fra Stetinden Studio: Inter Tight, aksentfargen #EF7140, glasspanel og animerte stjernefelt.
+- `assets/logo.svg`, `assets/favicon.svg` – logo. Ordmerket i `logo.svg` er tekst og trenger fonten Inter Tight for å se riktig ut.
 - `data/toplists.json` – eksempelutvalg for topplistene. Bygg på nytt med `python3 scripts/build_toplists.py` (tar et par minutter).
 - `data/regnskap/` – lagret regnskap per selskap, brukt av den publiserte siden. Bygg på nytt med `python3 scripts/build_regnskap.py`.
 - `data/ownership.json` – **eksempeldata** for eierskap. Personer og holdingselskaper er oppdiktet, og eierandelene i Efjord Extreme AS er også oppdiktet.

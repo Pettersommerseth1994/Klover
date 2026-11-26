@@ -4,19 +4,51 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ddai – alt om norske selskaper</title>
+<meta name="description" content="Søk i norske selskaper. Se regnskap, eiere, topplister og morsomme fakta – hentet fra åpne data i Brønnøysundregistrene.">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
-<nav class="rail" aria-label="Hovedmeny">
-  <a class="mark" href="#/" aria-label="ddai – til forsiden"><svg viewBox="0 0 32 32"><path d="M8.5 2a6.5 6.5 0 0 1 6.5 6.5V15H8.5a6.5 6.5 0 1 1 0-13zM23.5 2a6.5 6.5 0 1 1 0 13H17V8.5A6.5 6.5 0 0 1 23.5 2zM8.5 17H15v6.5A6.5 6.5 0 1 1 8.5 17zM17 17h6.5a6.5 6.5 0 1 1-6.5 6.5z"/></svg></a>
-  <a class="ri" href="#/" data-r="home" data-tip="Forside"><svg class="i" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></a>
-  <a class="ri" href="#/topplister" data-r="top" data-tip="Topplister"><svg class="i" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg></a>
-  <a class="ri" href="#/eiere" data-r="own" data-tip="Eiersøk"><svg class="i" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-3h14v3"/></svg></a>
-  <div class="sp"></div>
-  <a class="ri" href="#/om" data-r="about" data-tip="Om dataene"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></a>
+<a class="skip" href="javascript:void 0" onclick="document.getElementById('view').focus()">Hopp til innhold</a>
+<i class="prog" aria-hidden="true"></i>
+
+<header class="hd glass-hi">
+  <a class="lgo" href="#/" aria-label="ddai – til forsiden"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8.5 2a6.5 6.5 0 0 1 6.5 6.5V15H8.5a6.5 6.5 0 1 1 0-13zM23.5 2a6.5 6.5 0 1 1 0 13H17V8.5A6.5 6.5 0 0 1 23.5 2zM8.5 17H15v6.5A6.5 6.5 0 1 1 8.5 17zM17 17h6.5a6.5 6.5 0 1 1-6.5 6.5z"/></svg>ddai</a>
+  <nav aria-label="Hovedmeny">
+    <a href="#/topplister" data-nav="topplister">Topplister</a>
+    <a href="#/eiere" data-nav="eiere">Eiersøk</a>
+    <a href="#/om" data-nav="om">Om dataene</a>
+  </nav>
+  <div class="hd-r">
+    <button class="sbtn" type="button" data-cmdk aria-label="Søk (Ctrl+K)"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="t">Søk</span><span class="kbd" data-kbd>⌘K</span></button>
+    <a class="cta2" href="#/topplister">Se topplister</a>
+    <button class="mb" type="button" data-menu aria-expanded="false" aria-controls="mnav"><span>Meny</span></button>
+  </div>
+</header>
+<nav class="mnav" id="mnav" aria-label="Mobilmeny">
+  <a href="#/">Forside</a><a href="#/topplister">Topplister</a><a href="#/eiere">Eiersøk</a><a href="#/om">Om dataene</a>
 </nav>
-<main id="view"></main>
+
+<main id="view" tabindex="-1"></main>
+
+<footer class="ft">
+  <svg class="sym" viewBox="0 0 32 32" aria-hidden="true"><path d="M8.5 2a6.5 6.5 0 0 1 6.5 6.5V15H8.5a6.5 6.5 0 1 1 0-13zM23.5 2a6.5 6.5 0 1 1 0 13H17V8.5A6.5 6.5 0 0 1 23.5 2zM8.5 17H15v6.5A6.5 6.5 0 1 1 8.5 17zM17 17h6.5a6.5 6.5 0 1 1-6.5 6.5z"/></svg>
+  <div class="wrap">
+    <div class="cols">
+      <div><a class="lgo" href="#/" style="color:#fff;margin-bottom:16px">ddai</a><p>Alt om norske selskaper, enkelt forklart. Bygget på åpne data fra Brønnøysundregistrene.</p></div>
+      <div><h5>Utforsk</h5><a href="#/topplister">Topplister</a><a href="#/eiere">Eiersøk</a><a href="#/selskap/935851076">Eksempel: Efjord Extreme</a></div>
+      <div><h5>Data</h5><a href="#/om">Om dataene</a><a href="https://www.brreg.no/bruke-data-fra-bronnoysundregistrene/apne-data/" target="_blank" rel="noopener">Brønnøysundregistrene</a></div>
+      <div><h5>Snarveier</h5><a href="#/" data-cmdk-link>Søk: <span data-kbd>⌘K</span></a><a href="#/topplister?liste=utbytte">Størst utbytte</a><a href="#/topplister?liste=lonnsom">Mest lønnsomme</a></div>
+    </div>
+    <div class="legal"><span>© 2026 ddai – prototype</span><span>Data: Brønnøysundregistrene, NLOD</span><span>Eierskap vises med eksempeldata</span></div>
+  </div>
+</footer>
+
+<div class="cmdk" id="cmdk" role="dialog" aria-modal="true" aria-label="Søk"><div class="panel" id="cmdk-panel"></div></div>
+<div class="tip" id="tip" role="tooltip"></div>
 <script src="assets/app.js"></script>
 </body>
 </html>
