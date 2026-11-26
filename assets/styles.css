@@ -275,8 +275,9 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 
 /* Innsikt */
 .ins{position:relative}
-/* Ekstra luft rundt kortene inne i scrolleren, så skyggen ikke kuttes */
-.ins-track{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:8px var(--pad) 34px;margin:-8px calc(var(--pad) * -1) -12px;scroll-padding-inline:var(--pad)}
+/* Ekstra luft rundt kortene inne i scrolleren, så skyggen (0 8px 30px) får tone helt ut over og under.
+   Sidene tones ut med en maske, så kort som scrolles ut ikke kuttes brått */
+.ins-track{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:30px var(--pad) 48px;margin:-30px calc(var(--pad) * -1) -26px;scroll-padding-inline:var(--pad);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--pad),#000 calc(100% - var(--pad)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--pad),#000 calc(100% - var(--pad)),transparent 100%)}
 .ins-track::-webkit-scrollbar{display:none}
 .fact{flex:0 0 min(340px,84%);scroll-snap-align:start;padding:24px;min-height:230px;display:flex;flex-direction:column;position:relative}
 .fact .k{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.01em;color:var(--mut)}
@@ -549,7 +550,7 @@ table.own-t tbody[hidden]{display:none}
 .co-page .kc .v{font-size:clamp(19px,1.6vw,24px);margin-top:6px;white-space:nowrap}
 .co-page .kc .d{padding-top:8px;font-size:12px}
 .co-page .spark{height:18px}.co-page .spark i{width:6px}
-.co-page .ins-track{padding-bottom:34px;gap:12px}
+.co-page .ins-track{gap:12px}
 .co-page .fact{flex-basis:min(270px,80%);min-height:148px;padding:16px 18px}
 .co-page .fact .big{font-size:28px;padding-top:12px;margin-bottom:6px}
 .co-page .fact .big.sm{font-size:20px}
