@@ -245,7 +245,7 @@ function buildTree(id, mult = 1, chain = [], seen = new Set([id])) {
 // ---------- Aksjonærregisteret (lokal indeks fra scripts/build_aksjonaerregister.py) ----------
 // Filene finnes bare lokalt (personopplysninger, ignorert av Git). Mangler de, brukes eksempeldataene.
 const REG = { meta: undefined, sh: new Map() };
-const regMeta = async () => (REG.meta === undefined ? (REG.meta = await getJSON('data/aksjonaerregister/meta.json')) : REG.meta);
+const regMeta = async () => (REG.meta === undefined ? (REG.meta = LOCAL ? await getJSON('data/aksjonaerregister/meta.json') : null) : REG.meta);
 const regShard = (dir, name) => {
   const k = `${dir}/${name}`;
   if (!REG.sh.has(k)) REG.sh.set(k, getJSON(`data/aksjonaerregister/${dir}/${encodeURIComponent(name)}.json`).then(d => d || {}));
