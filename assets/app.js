@@ -874,6 +874,20 @@ function ownershipBlock(own, name) {
       ${H.length ? `<div class="vt" style="margin-top:${own.direct.length ? 22 : 0}px">${esc(name)} eier selv${own.holdsN > H.length ? ` (${nf.format(own.holdsN)})` : ''}</div><table class="mini own-t"><tbody>${H.slice(0, 8).map(h => `<tr data-href="${h.href}"><td><span class="who"><span class="av">${esc(ini(h.name))}</span><span><b>${esc(h.name)}</b><small>${h.sub}</small></span></span></td><td class="num">${pcp(h.pct)}</td></tr>`).join('')}</tbody>${H.length > 8 ? `<tbody class="more-own" hidden>${H.slice(8).map(h => `<tr data-href="${h.href}"><td><span class="who"><span class="av">${esc(ini(h.name))}</span><span><b>${esc(h.name)}</b><small>${h.sub}</small></span></span></td><td class="num">${pcp(h.pct)}</td></tr>`).join('')}</tbody>` : ''}</table>${more(H, 8, H.length)}` : ''}
     </div></div>`;
 }
+// Kjønn i styret, anslått ut fra fornavn: Brønnøysundregistrene oppgir ikke kjønn.
+// Listene er vanlige fornavn i Norge. Navn som ikke står her, eller brukes av begge kjønn, regnes som ukjent.
+const NAMES_K = new Set(('anne inger kari marit ingrid liv eva berit astrid bjørg hilde anna solveig marianne randi ida nina maria elisabeth kristin bente heidi silje hanne gerd linda tone tove elin anita wenche camilla monica monika ragnhild hege kirsten ellen julie karin gunn mari turid sissel janne ann line kjersti trine laila unni grete torill toril reidun irene siri sigrid emma nora sara sofie thea emilie ingeborg mette lene kristine aud jorunn marte marthe stine helene vigdis åse britt synnøve ruth else jenny guro kamilla karoline caroline vilde amalie maja hanna ella olivia leah frida tuva selma ingvild oda aurora mia linnea live mathilde hedda ane malin cecilie susanne tonje gunhild margrethe margit åshild eli ellinor eirin elise ina iselin katrine kine kristina lise lisbeth lill lillian merete mona nanna oddny oddrun petra rakel renate rita rønnaug sandra signe sigrun siv solfrid sonja stina svanhild therese tina torunn trude unn vibeke victoria viktoria yvonne åslaug hilda magnhild borghild jorid gro grethe gry hildegunn edel bodil dagny dagrun ester gudrun hjørdis inga kirsti klara lena lotte magni marie maren martine mina mira nathalie pernille agnes alma amanda andrea annette aslaug beate birgit birgitte bergljot brit carina charlotte christina christine dorthe ebba eline elsa emilia erle evelyn frøydis guri helga hedvig henriette ingunn isabel isabella jane janicke jannicke johanne josefine june karen kaja karina kathrine katharina kristiane laura lea liss louise madeleine mariann marion marita marlene maud mille miriam nikoline paula ronja rose sanna saga tiril tirill torhild tora ulrikke vera veronica veronika wilma agnete alexandra aina eldbjørg elna embla gunvor ingebjørg lisa mariell melissa oline rannveig runa seline sunniva tilde vilja ylva benedicte benedikte cathrine catrine elisabet gunhilde hildur inger-lise kjellaug liv-marit marit-anne randveig sølvi wencke ingerid fernanda dawn jennifer susan sarah rebecca rachel catherine katherine elizabeth mary patricia barbara margaret nancy betty helen donna carol sharon michelle kimberly deborah jessica amy angela brenda nicole samantha katarzyna agnieszka joanna ewa natalia olga irina svetlana tatiana elena julia sofia sophia claudia francesca giulia chiara isabelle sophie valerie sylvie monique birgitta annika åsa ulla kerstin johanna sanne femke ilse sabine heike gabriele ursula renata ana lucia carmen rosa teresa marta beatriz alice grace emily hannah charlotte lucy anne-marie annemarie mai maiken tonje-marie siw kristine-marie clare claire fiona gillian alison kirsty heather shirley jacqueline denise').split(' '));
+const NAMES_M = new Set(('jan per bjørn ole lars kjell knut svein arne hans geir thomas tor morten terje odd erik martin andreas john rune anders trond harald jon tore espen olav gunnar arild helge stein øyvind kristian marius rolf leif magnus tom daniel christian einar fredrik jonas jørgen nils kåre dag steinar sverre tormod kenneth roger frode stian petter henrik even eirik vegard vidar ivar sindre sigurd emil william oliver noah lucas lukas filip isak jakob jacob mathias matias sander tobias elias aksel mats markus håkon haakon alexander aleksander kristoffer sebastian joakim joachim adrian benjamin oskar oscar johannes simon ludvig liam theodor teodor kasper vetle sondre brage ola halvor hallvard audun asbjørn atle bård bernt birger bjarne børge eivind endre erlend finn frank gaute georg gjermund glenn gudmund gustav hallgeir hugo idar inge ingvar jarle jens jo johan jostein karl ketil kjetil kolbjørn kurt leiv lasse magne mikael michael mikkel nicolai nikolai njål oddvar paul pål peder preben ragnar reidar richard rikard robert roar ronny ruben runar sigmund snorre stig svend sveinung sølve thor torbjørn thorbjørn tord torgeir torkel torstein trygve tron vebjørn viggo vilhelm vincent åge øystein øivind ørjan amund anton are arnt asle bendik bent birk dan david dennis edvard egil eilif elling erling fabian ferdinand gard gisle gorm halfdan harry herman hermann ingvald jarl jesper jim jonny jørn kristen leon mads mohammad mohammed muhammad odin olaf olve patrick peter ralf raymond rasmus roald rudolf sjur stefan steffen sten stephan sveinar tim tomas torleif truls ulf vemund walter yngve øistein aage alf arvid arve audun bjørge eskil gerhard gunstein hallstein helge ivan jørund kåre lorentz ottar per-olav reidulf sigve sivert sturla svenn tarjei torfinn torvald ulrik james joseph charles christopher mark donald steven andrew joshua kevin brian george edward ronald timothy jason jeffrey ryan gary eric stephen larry scott justin brandon alan philip tony mario marco giovanni francesco luca pierre jacques francois philippe nicolas olivier laurent carlos juan jose luis miguel pedro antonio manuel javier piotr tomasz krzysztof pawel marcin michal andrzej jakub sergei dmitri alexei igor vladimir mikhail ahmed ali omar hassan hussein mustafa yusuf abdul lennart göran sven bengt björn mikko juha jukka matti pekka timo antti heikki jørgen-andreas henning niels claus klaus hans-petter jan-erik tor-arne callum graham stuart iain ian neil gordon duncan alistair alasdair hamish craig colin keith malcolm derek trevor nigel').split(' '));
+const genderOf = r => { const f = String(r.person?.navn?.fornavn || '').toLowerCase().split(/[\s-]+/)[0]; return NAMES_K.has(f) ? 'k' : NAMES_M.has(f) ? 'm' : 'u'; };
+function genderBlock(board, nameOf) {
+  const g = { k: 0, m: 0, u: 0 }; board.forEach(r => g[genderOf(r)]++);
+  const known = g.k + g.m, pk = known ? Math.round(g.k / known * 100) : null;
+  const parts = [g.k && `<span class="k">${g.k} ${g.k === 1 ? 'kvinne' : 'kvinner'}</span>`, g.m && `<span class="m">${g.m} ${g.m === 1 ? 'mann' : 'menn'}</span>`, g.u && `${g.u} ukjent`].filter(Boolean).join(' · ');
+  const tip = 'Brønnøysundregistrene oppgir ikke kjønn. Vi anslår kjønnet ut fra fornavnet, så det kan bli feil. Gjelder styreleder, nestleder og styremedlemmer – ikke varamedlemmer.';
+  const order = { k: 0, m: 1, u: 2 };
+  return { g, pk, html: `<div class="gend"><div class="gend-p" aria-hidden="true">${[...board].sort((a, b) => order[genderOf(a)] - order[genderOf(b)]).map(r => `<i class="${genderOf(r)}" title="${esc(nameOf(r))}"></i>`).join('')}</div>
+    <div class="gend-t">${pk != null ? `<b>${pk} % kvinner</b>` : '<b>Kjønn ukjent</b>'}<span>${parts}</span><button class="info" type="button" aria-label="Hvordan regnes kjønnsfordelingen ut?" aria-expanded="false" data-tip-t="Kjønnsfordeling i styret" data-tip="${esc(tip)}">i</button></div></div>` };
+}
 const ROLE_COLS = [
   ['Ledelse', ['DAGL', 'INNH', 'FFØR', 'BEST', 'KOMP', 'DTPR', 'DTSO']],
   ['Styret', ['LEDE', 'NEST', 'MEDL', 'VARA', 'OBS']],
@@ -898,10 +912,14 @@ function rolesBlock(ro, links = new Map()) {
     return `<${link ? `a href="${link}"` : 'div'} class="pp"><span class="av ${r.person ? 'pe' : ''} ${lead ? 'lead' : ''}">${esc(ini(n))}</span><div><b>${esc(n)}</b><span>${esc(r.type.beskrivelse)}${yr}${match ? ' · se eierskap' : ''}</span></div></${link ? 'a' : 'div'}>`;
   };
   const board = cols[1][1];
+  // Kjønnsfordeling: styreleder, nestleder og styremedlemmer (personer, ikke vara)
+  const voting = all.filter(r => r.person && ['LEDE', 'NEST', 'MEDL'].includes(r.type.kode));
+  const gb = voting.length > 1 ? genderBlock(voting, nameOf) : null;
   const dl = all.find(r => r.type.kode === 'DAGL'), sl = all.find(r => r.type.kode === 'LEDE'), rev = all.find(r => r.type.kode === 'REVI');
   const summary = [
     dl && `Daglig leder: <b>${esc(nameOf(dl))}</b>`,
     board.length && `<b>${board.length}</b> i styret`,
+    gb?.pk != null && `<b>${gb.pk} %</b> kvinner i styret`,
     dl && sl && nameOf(dl) === nameOf(sl) && 'Samme person er daglig leder og styreleder',
     rev ? `Revisor: <b>${esc(nameOf(rev))}</b>` : 'Ingen revisor',
   ].filter(Boolean).join('<span class="dot"></span>');
@@ -909,6 +927,7 @@ function rolesBlock(ro, links = new Map()) {
     <div class="org-sum">${summary}</div>
     <div class="org-cols">${cols.filter(c => c[1].length).map(([t, rs]) => `<div class="org-col ${rs.length > 3 ? 'wide' : ''}"><div class="org-t">${t}<span class="num">${rs.length}</span></div>
       ${t === 'Styret' && rs.length > 1 ? `<div class="stack" aria-hidden="true">${rs.map(r => `<span class="av pe ${r.type.kode === 'LEDE' ? 'lead' : ''}">${esc(ini(nameOf(r)))}</span>`).join('')}</div>` : ''}
+      ${t === 'Styret' && gb ? gb.html : ''}
       <div class="pp-grid">${rs.slice(0, 6).map(item).join('')}${rs.length > 6 ? `<div class="pp-more" hidden>${rs.slice(6).map(item).join('')}</div>` : ''}</div>
       ${rs.length > 6 ? `<button class="lnk" type="button" data-more-roles style="font-size:13px;margin-top:6px">Vis alle ${rs.length}</button>` : ''}</div>`).join('')}</div></div>` : '<p class="muted">Ingen roller registrert.</p>';
   return `<div class="block-h"><div><h2 class="h2">Hvem leder selskapet?</h2></div><span class="muted" style="font-size:12px">Kilde: Enhetsregisteret</span></div>${body}`;
@@ -1090,6 +1109,130 @@ async function company(id) {
 }
 
 // ---------- Person og eiertre ----------
+// ---------- Eierkartet: alt en person eier, og samlet andel gjennom alle ledd ----------
+// En person kan eie samme selskap gjennom flere holdingselskaper. Hver vei ganges ut (100 % × 60 % = 60 %),
+// og veiene legges sammen (60 % + 15 % = 75 %). Streken blir tykkere jo mer av selskapet som havner hos personen.
+const PATH_C = ['#EF7140', '#111111', '#F4A27C', '#6b6f76', '#b9bcc0'];
+function ownTarget(agg, id) {
+  const a = agg.get(id);
+  if (!a) return null;
+  const paths = [...a.paths].sort((x, y) => y.eff - x.eff).map((n, i) => ({ eff: n.eff, chain: n.chain, c: PATH_C[i % PATH_C.length] }));
+  return { id, name: a.paths[0].name, total: Math.min(100, a.total), paths };
+}
+const viaTxt = p => (p.chain.length > 1 ? `gjennom ${p.chain.slice(0, -1).map(c => esc(c.name)).join(' og ')}` : 'direkte');
+const mathTxt = p => (p.chain.length > 1 ? `${p.chain.map(c => pcp(c.andel)).join(' × ')} = <b>${pcp(p.eff)}</b>` : `direkte <b>${pcp(p.eff)}</b>`);
+// Ring som viser hvor stor del av selskapet personen eier, delt etter veiene
+function ownRing(segs, size = 46) {
+  const r = 18, C = 2 * Math.PI * r; let acc = 0;
+  const arcs = segs.map(([v, c]) => { const len = Math.max(0, v) / 100 * C, o = `<circle r="${r}" cx="22" cy="22" fill="none" stroke="${c}" stroke-width="7" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}"/>`; acc += len; return o; }).join('');
+  return `<svg class="ring" viewBox="0 0 44 44" width="${size}" height="${size}" aria-hidden="true"><circle r="${r}" cx="22" cy="22" fill="none" stroke="#ecebe6" stroke-width="7"/><g transform="rotate(-90 22 22)">${arcs}</g></svg>`;
+}
+// Graf for alt personen eier: hver gren (direkte eierskap) får sin farge
+function fullGraph(tree, agg, pname, max = 14) {
+  const top = new Set([...agg.values()].sort((a, b) => b.total - a.total).slice(0, max).map(a => a.id));
+  const all = []; (function walk(ns) { ns.forEach(n => { all.push(n); walk(n.kids); }); })(tree);
+  const keep = all.filter(n => top.has(n.id));
+  const branch = new Map(tree.map((n, i) => [n.id, PATH_C[i % (PATH_C.length - 1)]]));
+  const col = new Map();
+  keep.forEach(n => n.chain.forEach((c, k) => col.set(c.selskap, Math.max(col.get(c.selskap) || 0, k + 1))));
+  const cols = Math.max(1, ...col.values()) + 1;
+  const nodes = new Map([['P', { id: 'P', name: pname, col: 0, pe: 1, pi: new Set(keep.map((_, j) => j)), sub: `${agg.size} selskaper` }]]);
+  const links = new Map(), occ = new Set();
+  keep.forEach((n, j) => {
+    let prev = 'P', prod = 100;
+    n.chain.forEach((c, k) => {
+      prod *= c.andel / 100;
+      if (!nodes.has(c.selskap)) nodes.set(c.selskap, { id: c.selskap, name: c.name, col: col.get(c.selskap), pi: new Set(), total: agg.get(c.selskap)?.total || 0, br: branch.get(n.chain[0].selskap) });
+      nodes.get(c.selskap).pi.add(j);
+      const key = `${prev}>${c.selskap}`;
+      if (!links.has(key)) links.set(key, { key, f: prev, t: c.selskap, w: 0, c: branch.get(n.chain[0].selskap), lb: pcp(c.andel), pi: [], tip: `${nodes.get(prev).name} eier ${pcp(c.andel)} av ${c.name}` });
+      const l = links.get(key), o = n.chain.slice(0, k + 1).map(x => x.selskap).join('>');
+      if (!occ.has(o)) { occ.add(o); l.w += prod; }
+      if (!l.pi.includes(j)) l.pi.push(j);
+      prev = c.selskap;
+    });
+  });
+  const ns = [...nodes.values()].sort((a, b) => a.col - b.col || PATH_C.indexOf(a.br) - PATH_C.indexOf(b.br) || (b.total || 0) - (a.total || 0));
+  ns.forEach(n => { if (!n.pe) n.sub = `<b class="num">${pcp(n.total)}</b>`; });
+  return { cols, nodes: ns, links: [...links.values()], keep };
+}
+// Flytdiagrammet: noder i kolonner (på mobil i rader) og streker tegnet i SVG når boksene har fått plass
+function flowBox(G, cls = '') {
+  const colsHtml = Array.from({ length: G.cols }, (_, i) => `<div class="fcol">${G.nodes.filter(n => n.col === i).map(n => `<button type="button" class="fn${n.pe ? ' pe' : ''}" data-n="${esc(n.id)}" data-pi="${[...n.pi].join(',')}"${n.br ? ` style="--br:${n.br}"` : ''}>
+      <span class="av${n.pe ? ' pe' : ''}">${esc(ini(n.name))}</span><span class="fn-t"><span class="fn-n">${esc(n.name)}</span>${n.sub ? `<span class="fn-s">${n.sub}</span>` : ''}</span></button>`).join('')}</div>`).join('');
+  const L = G.links.map(({ key, f, t, w, c, lb, pi, tip }) => ({ key, f, t, w, c, lb, pi, tip }));
+  return `<div class="flow ${cls}" style="--cols:${G.cols}" data-links='${esc(JSON.stringify(L))}'><svg class="flow-l"></svg>${colsHtml}<div class="ftip" hidden></div></div>`;
+}
+function drawFlow(fl) {
+  const svg = fl && $('.flow-l', fl);
+  if (!svg) return;
+  const R = fl.getBoundingClientRect(), vert = getComputedStyle(fl).display !== 'grid';
+  const pos = new Map($$('.fn', fl).map(el => { const r = el.getBoundingClientRect(); return [el.dataset.n, { x: r.left - R.left, y: r.top - R.top, w: r.width, h: r.height }]; }));
+  const links = JSON.parse(fl.dataset.links), outs = new Map(), ins = new Map();
+  const push = (m, k, l) => (m.get(k) || m.set(k, []).get(k)).push(l);
+  links.forEach(l => { if (pos.has(l.f) && pos.has(l.t)) { push(outs, l.f, l); push(ins, l.t, l); } });
+  const mid = id => (vert ? pos.get(id).x + pos.get(id).w / 2 : pos.get(id).y + pos.get(id).h / 2);
+  outs.forEach(a => a.sort((x, y) => mid(x.t) - mid(y.t)));
+  ins.forEach(a => a.sort((x, y) => mid(x.f) - mid(y.f)));
+  // Tykkelse: 100 % gir 12 px. Strekene fra samme boks legges ved siden av hverandre, som i et Sankey-diagram.
+  const sw = l => Math.max(2, l.w / 100 * 12);
+  const stack = (arr, l, size) => { const tot = arr.reduce((s, x) => s + sw(x), 0) + (arr.length - 1) * 3, room = Math.min(tot, size - 12); let o = -room / 2; for (const x of arr) { const w = sw(x) * room / tot; if (x === l) return o + w / 2; o += w + 3 * room / tot; } return 0; };
+  let s = '';
+  const labs = [];
+  links.forEach(l => {
+    if (!pos.has(l.f) || !pos.has(l.t)) return;
+    const a = pos.get(l.f), b = pos.get(l.t), w = sw(l);
+    let x1, y1, x2, y2, d, cp;
+    if (!vert) {
+      x1 = a.x + a.w; y1 = a.y + a.h / 2 + stack(outs.get(l.f), l, a.h); x2 = b.x; y2 = b.y + b.h / 2 + stack(ins.get(l.t), l, b.h);
+      const m = (x1 + x2) / 2; d = `M${x1.toFixed(1)} ${y1.toFixed(1)}C${m.toFixed(1)} ${y1.toFixed(1)} ${m.toFixed(1)} ${y2.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+      cp = [m, y1, m, y2];
+    } else {
+      x1 = a.x + a.w / 2 + stack(outs.get(l.f), l, a.w); y1 = a.y + a.h; x2 = b.x + b.w / 2 + stack(ins.get(l.t), l, b.w); y2 = b.y;
+      const m = (y1 + y2) / 2; d = `M${x1.toFixed(1)} ${y1.toFixed(1)}C${x1.toFixed(1)} ${m.toFixed(1)} ${x2.toFixed(1)} ${m.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+      cp = [x1, m, x2, m];
+    }
+    const pi = l.pi.join(',');
+    s += `<g class="lk" data-pi="${pi}" style="--c:${l.c}"><path class="lk-b" d="${d}" stroke-width="${w.toFixed(1)}"/><path class="lk-h" d="${d}" stroke-width="${Math.max(18, w + 10).toFixed(1)}" data-ftip="${esc(l.tip)}" data-pi="${pi}"/></g>`;
+    // Etiketten står 70 % ut på streken, nær selskapet den peker på – da kolliderer de sjeldnere der strekene krysser
+    const t = .7, u = 1 - t, bz = (p0, p1, p2, p3) => u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+    const lw = l.lb.length * 7 + 16, lx = bz(x1, cp[0], cp[2], x2), ly = bz(y1, cp[1], cp[3], y2);
+    labs.push({ x: lx, y: ly, w: lw, pi, c: l.c, lb: l.lb });
+  });
+  // Etiketter som overlapper, skyves fra hverandre på tvers av strekene
+  const ax = vert ? 'x' : 'y', size = q => (vert ? q.w : 22);
+  labs.sort((p, q) => p[ax] - q[ax]);
+  for (let i = 0; i < labs.length; i++) for (let j = 0; j < i; j++) {
+    const a = labs[j], b = labs[i];
+    if (Math.abs(a.x - b.x) < (a.w + b.w) / 2 + 2 && Math.abs(a.y - b.y) < 24) b[ax] = a[ax] + (size(a) + size(b)) / 2 + 4;
+  }
+  const lab = labs.map(q => `<g class="lb" data-pi="${q.pi}" transform="translate(${q.x.toFixed(1)} ${q.y.toFixed(1)})" style="--c:${q.c}"><rect x="${-q.w / 2}" y="-11" width="${q.w}" height="22" rx="11"/><text text-anchor="middle" dy="4.2">${esc(q.lb)}</text></g>`).join('');
+  svg.innerHTML = s + lab;
+}
+// Fremhev veiene med disse nummerne (null = alle)
+function hlFlow(box, pis) {
+  if (!box) return;
+  $$('[data-pi]', box).forEach(el => {
+    const on = !pis || el.dataset.pi.split(',').some(i => pis.includes(+i));
+    el.classList.toggle('dim', !on); el.classList.toggle('hl', !!pis && on);
+  });
+}
+// Hele eierkartet: alt personen eier i ett diagram – trykk på et selskap for å se regnestykket
+function ovMap(tree, agg, pname, tid) {
+  const fn = first(pname), G = fullGraph(tree, agg, pname), T = ownTarget(agg, tid);
+  const pis = G.keep.map((n, j) => (n.id === tid ? j : -1)).filter(j => j >= 0);
+  const card = T ? `<aside class="map-card" aria-live="polite"><span class="ov-k">Valgt selskap</span><h4>${esc(T.name)}</h4>
+      <div class="map-tot">${ownRing(T.paths.map(p => [p.eff, p.c]), 64)}<div><b class="num">${pcp(T.total)}</b><span>eies av ${esc(fn)}${T.paths.length > 1 ? `, gjennom ${T.paths.length} veier` : ''}</span></div></div>
+      <div class="map-paths">${T.paths.map(p => `<div class="mp" style="--c:${p.c}"><span class="dot"></span><div><span>${p.chain.length > 1 ? viaTxt(p).replace(/^gjennom/, 'Via') : 'Direkte'}</span><span class="num">${mathTxt(p)}</span></div></div>`).join('')}
+      ${T.paths.length > 1 ? `<div class="mp sum"><div><span>Til sammen</span><span class="num">${T.paths.map(p => pcp(p.eff)).join(' + ')} = <b>${pcp(T.total)}</b></span></div></div>` : ''}</div>
+      <a class="btn ghost sm" href="#/selskap/${esc(T.id)}">Åpne selskapet ${ic('arrow')}</a></aside>` : '';
+  const more = agg.size > G.nodes.length - 1 ? `<p class="ov-n">Viser de ${G.nodes.length - 1} største av ${agg.size} selskaper.</p>` : '';
+  return `<div class="ov glass ov-m" data-selpi="${pis.join(',')}">
+    <div class="ov-h"><div><span class="ov-k">Eierkart</span><h3>Alt ${esc(fn)} eier – trykk på et selskap</h3></div></div>
+    <div class="map-grid">${flowBox(G, 'map')}${card}</div>
+    <p class="ov-n">Tallet på hver strek er eierandelen i det leddet. Jo tykkere strek, jo mer av selskapet havner hos ${esc(fn)}.</p>${more}</div>`;
+}
+
 async function person(id) {
   skeleton();
   let p, tree, src;
@@ -1111,6 +1254,8 @@ async function person(id) {
   const direct = tree.length, fn = first(p.navn);
   const open = new Set(), keyOf = n => n.chain.map(e => e.selskap).join('>');
   let selected = null, mode = 'tree';
+  // Valgt selskap i eierkartet: først det personen eier gjennom flest veier
+  let tid = [...agg.values()].sort((a, b) => b.paths.length - a.paths.length || b.total - a.total)[0]?.id || null;
   const find = (nodes, k) => { for (const n of nodes) { if (keyOf(n) === k) return n; const f = find(n.kids, k); if (f) return f; } };
   const all = (nodes, f) => nodes.forEach(n => { f(n); all(n.kids, f); });
   V.innerHTML = `
@@ -1121,9 +1266,10 @@ async function person(id) {
     <div class="chips" style="margin-top:18px">${p.yr ? `<span class="chip">f. ${esc(p.yr)}</span>` : ''}${p.sted ? `<span class="chip">${esc(p.sted)}</span>` : ''}${src === 'reg' ? `<span class="src-tag">Aksjonærregisteret ${REG.meta.år}</span>` : '<span class="demo">Eksempeldata</span>'}</div>
   </div></section>
   <div class="wrap" style="padding-bottom:110px">
-    <div class="block-h"><div><h2 class="h2">Hva eier ${esc(fn)}?</h2><p>Trykk deg nedover i treet. Prosenten til høyre er ${esc(fn)}s reelle andel – ganget gjennom alle ledd.</p></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="seg" role="tablist"><button role="tab" data-m="tree" class="on" aria-selected="true">Eiertre</button><button role="tab" data-m="list" aria-selected="false">Samlet oversikt</button></div><button class="btn ghost" data-x>Utvid alle</button></div></div>
-    <div id="pbox"></div><div id="tv"></div>
+    <div class="block-h"><div><h2 class="h2">Hva eier ${esc(fn)}?</h2><p>Kartet viser alt ${esc(fn)} eier. Prosentene er ${esc(fn)}s reelle andel – ganget gjennom alle ledd og lagt sammen når det finnes flere veier.</p></div></div>
+    <div id="pbox"></div>
+    <div class="tv-bar"><div class="seg" id="pmode" role="tablist" aria-label="Visning"><button type="button" role="tab" data-m="tree" class="on" aria-selected="true">Eiertre</button><button type="button" role="tab" data-m="list" aria-selected="false">Samlet oversikt</button></div><button class="btn ghost" data-x>Utvid alle</button></div>
+    <div id="tv"></div>
   </div>`;
   constellation($('.ph .field'));
   const nodeHtml = (n, parent) => {
@@ -1135,32 +1281,64 @@ async function person(id) {
       <a class="open-l" href="#/selskap/${n.id}" data-open aria-label="Åpne ${esc(e.navn)}">${ic('arrow')}</a></div>
       ${has && isOpen ? `<div class="kids" role="group">${n.kids.map(c => nodeHtml(c, e.navn)).join('')}</div>` : ''}</div>`;
   };
-  const pathBox = () => {
-    const n = selected && find(tree, selected);
-    if (!n) return `<div class="pathbox glass">${STAR.replace('<svg', '<svg style="width:12px;height:12px;fill:var(--ac)"')}<span class="muted">Trykk på et selskap for å se hvor mye ${esc(fn)} eier av det.</span></div>`;
-    const steps = n.chain.map(e => `<span class="ar">→ ${pcp(e.andel)} →</span><span class="st">${esc(e.name)}</span>`).join('');
-    const via = n.chain.slice(0, -1).map(e => esc(e.name)).join(' og ');
-    return `<div class="pathbox glass" aria-live="polite"><span class="st">${esc(p.navn)}</span>${steps}<span class="res num">= ${pcp(n.eff)}</span><span class="fm"><b>${esc(p.navn)}</b> eier ${pcp(n.eff)} av ${esc(n.name)}${via ? `, gjennom ${via}` : ''}.</span></div>`;
+  // Eierkartet over treet: tegn strekene når boksene har fått plass, og fremhev veiene til valgt selskap
+  const selPis = () => { const m = $('#pbox .ov-m'); return m?.dataset.selpi ? m.dataset.selpi.split(',').map(Number) : null; };
+  const paint = () => {
+    const m = $('#pbox .ov-m'); if (!m) return;
+    drawFlow($('.flow', m)); hlFlow($('.flow', m), selPis());
+    $$('.fn', m).forEach(f => f.classList.toggle('is-sel', f.dataset.n === tid));
   };
+  const renderMap = () => { $('#pbox').innerHTML = agg.size ? ovMap(tree, agg, p.navn, tid) : ''; requestAnimationFrame(paint); };
   const listHtml = () => `<div class="glass card"><table class="mini"><tbody>${[...agg.values()].sort((a, b) => b.total - a.total).map(a => {
     const e = { navn: a.paths[0].name }, kinds = new Set(a.paths.map(x => (x.chain.length > 1 ? 'indirekte' : 'direkte')));
     return `<tr data-href="#/selskap/${a.id}"><td><span style="display:flex;align-items:center;gap:12px"><span class="av">${esc(ini(e.navn))}</span><span><b style="font-weight:500">${esc(e.navn)}</b><br><span class="muted" style="font-size:13px">${a.paths.map(x => (x.chain.length > 1 ? `${pcp(x.eff)} via ${x.chain.slice(0, -1).map(c => esc(c.name)).join(' → ')}` : `${pcp(x.eff)} direkte`)).join(' · ')}</span></span></span></td>
       <td class="muted" style="font-weight:400;text-align:right;white-space:nowrap">${[...kinds].join(' + ')}</td><td style="font-size:20px;white-space:nowrap;padding-left:16px">${pcp(a.total)}</td></tr>`;
   }).join('')}</tbody></table></div>`;
-  const render = () => {
-    $('#pbox').innerHTML = mode === 'tree' ? pathBox() : '';
+  // Kartet blir stående når du bytter mellom eiertre og samlet oversikt – bare listen under byttes
+  const render = () => { renderMap(); renderList(); };
+  const renderList = () => {
     $('#tv').innerHTML = mode === 'tree' ? `<div class="tree" role="tree" aria-label="Eiertre for ${esc(p.navn)}"><div class="nrow glass" style="cursor:default;transform:none"><span class="av pe">${esc(ini(p.navn))}</span><div class="nm"><b>${esc(p.navn)}</b><span>${agg.size} selskaper totalt</span></div><div class="eff"><b>100 %</b><span>utgangspunkt</span></div></div><div class="node"><div class="kids" role="group">${tree.map(n => nodeHtml(n, fn)).join('')}</div></div></div>` : listHtml();
     $('[data-x]').style.display = mode === 'tree' ? '' : 'none';
   };
-  const toggle = k => { if (open.has(k) && selected === k) open.delete(k); else open.add(k); selected = k; render(); $(`.nrow[data-key="${k}"]`)?.focus({ preventScroll: true }); };
+  // Trykk i treet: åpne/lukk, og vis selskapet i eierkartet. Raden blir stående der den var på skjermen.
+  const toggle = k => {
+    const y0 = $(`.nrow[data-key="${k}"]`)?.getBoundingClientRect().top;
+    if (open.has(k) && selected === k) open.delete(k); else open.add(k);
+    selected = k; const n = find(tree, k); if (n) tid = n.id;
+    render();
+    const el = $(`.nrow[data-key="${k}"]`);
+    if (el && y0 != null) scrollBy(0, el.getBoundingClientRect().top - y0);
+    el?.focus({ preventScroll: true });
+  };
   $('#tv').addEventListener('click', e => {
     if (e.target.closest('[data-open]')) return;
     const tr = e.target.closest('tr[data-href]'); if (tr) { location.hash = tr.dataset.href; return; }
     const r = e.target.closest('.nrow[data-key]'); if (r) toggle(r.dataset.key);
   });
+  const pb = $('#pbox');
+  // Trykk på et selskap i kartet: vis regnestykket for det
+  pb.addEventListener('click', e => {
+    if (e.target.closest('a')) return;
+    const f = e.target.closest('.fn'); if (f && f.dataset.n !== 'P' && f.dataset.n !== tid) { tid = f.dataset.n; renderMap(); }
+  });
+  // Pek (mus): fremhev veiene du peker på, og vis hva streken betyr
+  const hover = matchMedia('(hover: hover)').matches;
+  const restore = () => hlFlow($('.ov-m .flow', pb), selPis());
+  pb.addEventListener('pointermove', e => {
+    if (!hover) return;
+    const fl = e.target.closest('.flow'), tp = fl && $('.ftip', fl), h = e.target.closest('[data-ftip]');
+    if (tp) { if (h) { const R = fl.getBoundingClientRect(); tp.textContent = h.dataset.ftip; tp.hidden = false; tp.style.left = `${e.clientX - R.left}px`; tp.style.top = `${e.clientY - R.top}px`; } else tp.hidden = true; }
+    const area = $('.ov-m .flow', pb), el = e.target.closest('[data-pi]');
+    if (area && el && area.contains(el)) hlFlow(area, el.dataset.pi.split(',').map(Number)); else restore();
+  });
+  pb.addEventListener('pointerleave', () => { restore(); $$('.ftip', pb).forEach(x => { x.hidden = true; }); });
+  let praf = 0;
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => { cancelAnimationFrame(praf); praf = requestAnimationFrame(paint); }); ro.observe(pb); pageAC.signal.addEventListener('abort', () => ro.disconnect()); }
+  document.fonts?.ready.then(() => requestAnimationFrame(paint));
   $('#tv').addEventListener('keydown', e => { const r = e.target.closest('.nrow[data-key]'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(r.dataset.key); } });
-  $('.seg').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; mode = b.dataset.m; $$('.seg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); render(); });
-  $('[data-x]').addEventListener('click', e => { const any = open.size; open.clear(); if (!any) all(tree, n => n.kids.length && open.add(keyOf(n))); e.target.textContent = any ? 'Utvid alle' : 'Lukk alle'; render(); });
+  // Eiertre / Samlet oversikt: knyttet til akkurat denne bryteren, ikke den første .seg på siden
+  $('#pmode').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b || b.dataset.m === mode) return; mode = b.dataset.m; $$('#pmode button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); renderList(); });
+  $('[data-x]').addEventListener('click', e => { const any = open.size; open.clear(); if (!any) all(tree, n => n.kids.length && open.add(keyOf(n))); e.target.textContent = any ? 'Utvid alle' : 'Lukk alle'; renderList(); });
   render();
 }
 
