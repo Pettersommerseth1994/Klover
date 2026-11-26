@@ -63,6 +63,10 @@ const P = {
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>', right: '<path d="m9 18 6-6-6-6"/>', left: '<path d="m15 18-6-6 6-6"/>',
   ext: '<path d="M7 17 17 7M8 7h9v9"/>', arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>', copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>',
   filter: '<path d="M3 5h18M6 12h12M10 19h4"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', check: '<path d="m5 12 5 5L20 7"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>', chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  tree: '<rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-3h14v3"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4a3.5 3.5 0 0 1 0 7M22 20c0-3-1.5-5-4-5.7"/>', down: '<path d="m6 9 6 6 6-6"/>',
 };
 const ic = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</svg>`;
 const STAR = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 37 32 32 60 27 32Z"/><path d="M32 4 37 32 32 60 27 32Z" transform="rotate(90 32 32)"/></svg>';
@@ -905,7 +909,7 @@ async function company(id) {
   let si = ys.length - 1, metric = 'rev', cmp = true;
   try { cmp = localStorage.getItem('klover.cmp') !== '0'; } catch (e) { /* privat modus */ }
   const hn = (ent?.historiskeNavn || []).map(h => nice(h.navn));
-  const tabs = demo ? [['eiere', 'Eiere']] : [['oversikt', 'Oversikt'], ['innsikt', 'Innsikt'], ['regnskap', 'Regnskap'], ['eiere', 'Eiere'], ['roller', 'Roller']];
+  const tabs = demo ? [['eiere', 'Eiere', 'tree']] : [['oversikt', 'Oversikt', 'grid'], ['innsikt', 'Innsikt', 'spark'], ['regnskap', 'Regnskap', 'chart'], ['eiere', 'Eiere', 'tree'], ['roller', 'Roller', 'users']];
   const dl = demo ? [['Type', 'Oppdiktet eksempelselskap'], ['Sted', E(id).sted]] : [
     ['Org.nr', `${fmtOrg(id)}<button class="copy" type="button" data-copy="${id}" aria-label="Kopier organisasjonsnummer">${ic('copy')}</button>`],
     ['Selskapsform', esc(ent.organisasjonsform?.beskrivelse || '')], ['Stiftet', fmtDate(ent.stiftelsesdato) || '–'],
@@ -922,7 +926,8 @@ async function company(id) {
       <aside class="facts glass card" aria-label="Nøkkelinformasjon"><dl>${dl.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></aside>
     </div></div></section>
   <div class="wrap" style="padding-bottom:40px">
-    <nav class="subnav glass-hi" aria-label="Seksjoner"><div class="tabs">${tabs.map(([k, t], i) => `<a href="javascript:void 0" data-go="${k}" class="${i ? '' : 'on'}">${t}</a>`).join('')}</div>
+    <nav class="subnav glass-hi" aria-label="Seksjoner"><button class="sn-cur" type="button" data-sncur aria-expanded="false" aria-controls="sn-tabs"><span id="sn-cur-t">${tabs[0][1]}</span>${ic('down')}</button>
+      <div class="tabs" id="sn-tabs">${tabs.map(([k, t, icn], i) => `<a href="javascript:void 0" data-go="${k}" class="${i ? '' : 'on'}"><span class="sn-i">${ic(icn)}</span><span class="sn-t">${t}</span></a>`).join('')}</div>
       ${ys.length ? `<div class="yearnav" role="group" aria-label="Velg regnskapsår"><span class="lbl">Regnskapsår</span><button class="rbtn" data-y="-1" aria-label="Forrige år">${ic('left')}</button><b class="num" aria-live="polite" id="yr"></b><button class="rbtn" data-y="1" aria-label="Neste år">${ic('right')}</button></div>` : ''}</nav>
     ${!demo ? `<section class="block" id="oversikt"><div class="block-h"><div><h2 class="h2" id="ov-h"></h2><p id="ov-p"></p></div></div><div class="kgrid" id="kpis"></div></section>` : ''}
     ${F.length ? `<section class="block" id="innsikt"><div class="block-h"><div><h2 class="h2">Kjappe fakta</h2><p>Bla gjennom det regnskapet faktisk forteller om ${esc(name)}.</p></div>
@@ -1000,6 +1005,11 @@ async function company(id) {
     const th = e.target.closest('th[data-yi]'); if (th) setYear(+th.dataset.yi);
     const m = e.target.closest('[data-m]'); if (m) { metric = m.dataset.m; $$('[data-m]').forEach(x => { x.classList.toggle('on', x === m); x.setAttribute('aria-selected', x === m); }); draw(); }
     const go = e.target.closest('[data-go]'); if (go) $('#' + go.dataset.go)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const sn = $('.subnav');
+    if (go && $('#sn-cur-t')) $('#sn-cur-t').textContent = go.textContent.trim();
+    const cur = e.target.closest('[data-sncur]');
+    if (cur) { const o = sn.classList.toggle('open'); cur.setAttribute('aria-expanded', o); }
+    else if (sn?.classList.contains('open') && (go || !e.target.closest('.subnav'))) { sn.classList.remove('open'); $('[data-sncur]')?.setAttribute('aria-expanded', 'false'); }
     const tr = e.target.closest('tr[data-href]'); if (tr) location.hash = tr.dataset.href;
     const sw = e.target.closest('[data-cmp]');
     if (sw) { cmp = !cmp; sw.setAttribute('aria-checked', cmp); try { localStorage.setItem('klover.cmp', cmp ? '1' : '0'); } catch (er) { /* */ } $('table.fin')?.classList.toggle('nocmp', !cmp); setUnit(); }
@@ -1042,6 +1052,8 @@ async function company(id) {
     for (const b of blocks) if (b.getBoundingClientRect().top <= 170) cur = b.id;
     if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) cur = blocks[blocks.length - 1]?.id;
     tabsEl.forEach(a => a.classList.toggle('on', a.dataset.go === cur));
+    const ct = $('#sn-cur-t'), on = tabsEl.find(a => a.dataset.go === cur);
+    if (ct && on) ct.textContent = on.textContent.trim();
   };
   addEventListener('scroll', () => { if (!spyRaf) spyRaf = requestAnimationFrame(spy); }, { passive: true, signal: pageAC.signal });
   spy();
