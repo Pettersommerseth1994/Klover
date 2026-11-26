@@ -271,7 +271,7 @@ async function searchAll(q) {
     sub: [fmtOrg(e.organisasjonsnummer), e.organisasjonsform?.kode, nice(e.forretningsadresse?.poststed || e.postadresse?.poststed || '')].filter(Boolean).join(' · ') }));
   return [...out.filter(x => x.kind === 'pe'), ...cos, ...out.filter(x => x.kind === 'co')];
 }
-function makeSearch({ mode = 'hero', placeholder = 'Søk på selskap, org.nr eller person' } = {}) {
+function makeSearch({ mode = 'hero', placeholder = 'Søk etter selskap, organisasjonsnummer eller person' } = {}) {
   const w = document.createElement('div');
   w.className = 'search';
   const id = 'sr' + Math.random().toString(36).slice(2, 7);
@@ -447,11 +447,7 @@ async function home() {
   </div></section>`;
   starField($('.hero .field'), { mode: 'breathe', sp: 12, mouse: false });
   constellation($('.feat-vis canvas'));
-  const s = makeSearch({ mode: 'hero', placeholder: 'Søk på selskap, org.nr eller person …' });
-  $('#hs').append(s.el);
-  const ph = ['Søk på selskap, org.nr eller person …', 'Prøv «Efjord Extreme»', 'Prøv «Petter Sommerseth»', 'Prøv «923 609 016»'];
-  let pi = 0;
-  every(() => { if (document.activeElement !== s.input && !s.input.value) s.input.placeholder = ph[(pi = (pi + 1) % ph.length)]; }, 2800);
+  $('#hs').append(makeSearch({ mode: 'hero' }).el);
   $('[data-scroll]').addEventListener('click', () => $('#tl-prev').scrollIntoView({ behavior: 'smooth' }));
   api('enhetsregisteret/api/enheter?size=1').then(d => {
     const n = d?.page?.totalElements; if (!n) return;
@@ -636,13 +632,14 @@ function chartSVG(ys, key, si, cw = 820) {
   const T = ticks(Math.min(0, ...vals.filter(v => v != null)), Math.max(0, ...vals.filter(v => v != null)));
   const W = Math.max(300, Math.round(cw)), sm = W < 560, H = sm ? 200 : 230, L = sm ? 50 : 64, R = 8, Tp = 30, B = 40, lo = T[0], hi = T.at(-1);
   const Y = v => Tp + (hi - v) / (hi - lo) * (H - Tp - B);
-  const slot = (W - L - R) / ys.length, bw = Math.min(96, slot * .5);
+  const n = ys.length, plotW = W - L - R, gap = sm ? 10 : 14;
+  const bw = Math.min(sm ? 64 : 112, (plotW - gap * (n - 1)) / n * .8), x0 = L + (plotW - (n * bw + (n - 1) * gap)) / 2;
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)} per år">`;
   T.forEach(t => { s += `<line class="${t === 0 ? 'zl' : 'gl'}" x1="${L}" x2="${W - R}" y1="${Y(t)}" y2="${Y(t)}"/><text class="ax" x="${L - 10}" y="${Y(t) + 4}" text-anchor="end">${short(t)}</text>`; });
   ys.forEach((y, i) => {
-    const v = y[key], cx = L + slot * (i + .5), x = cx - bw / 2, on = i === si;
+    const v = y[key], x = x0 + i * (bw + gap), cx = x + bw / 2, on = i === si;
     const tip = `${label}: ${fmt(v)}` + (i > 0 && v != null && ys[i - 1][key] ? `\nEndring fra ${ys[i - 1].y}: ${isPct ? dec(v - ys[i - 1][key], 1) + ' prosentpoeng' : sgn(chg(v, ys[i - 1][key]))}` : '') + '\nKlikk for å velge året';
-    s += `<rect class="hit" x="${L + slot * i}" y="${Tp - 20}" width="${slot}" height="${H - Tp - B + 40}" data-i="${i}" data-tip-t="${y.y}" data-tip="${esc(tip)}"/>`;
+    s += `<rect class="hit" x="${x - gap / 2}" y="${Tp - 20}" width="${bw + gap}" height="${H - Tp - B + 40}" data-i="${i}" data-tip-t="${y.y}" data-tip="${esc(tip)}"/>`;
     if (v != null) {
       const y0 = Y(0), y1 = Y(v), h = Math.max(2, Math.abs(y1 - y0));
       s += `<rect class="bar ${v < 0 ? 'neg' : ''} ${on ? 'on' : ''}" x="${x}" y="${Math.min(y0, y1)}" width="${bw}" height="${h}" rx="2" data-i="${i}" data-tip-t="${y.y}" data-tip="${esc(tip)}" style="pointer-events:none"/>`;
@@ -679,17 +676,17 @@ function finTable(ys, si, cmp) {
   };
   let html = '', grp = null;
   for (const [label, key, sum, u] of ROWS) {
-    if (label === 'g') { grp = `<tr class="grp"><td colspan="${cols.length + 1}">${key}</td></tr>`; continue; }
+    if (label === 'g') { grp = `${html ? `<tr class="gap" aria-hidden="true"><td colspan="${cols.length + 1}"></td></tr>` : ''}<tr class="grp"><td colspan="${cols.length + 1}">${key}</td></tr>`; continue; }
     if (ys.every(y => y[key] == null)) continue;
     if (grp) { html += grp; grp = null; }
     html += `<tr class="${sum ? 'sum' : ''}"><td><span class="rl">${label}${info(key, label)}</span></td>${cols.map(y => {
       const v = y[key], on = y.i === si;
       const txt = v == null ? '–' : u === '%' ? pc(v) : u === 'x' ? dec(v, 2) : nf.format(Math.round(v / unit));
-      const d = cmp ? (y.i > 0 ? delta(v, ys[y.i - 1][key], u) : '<span class="cd"></span>') : '';
+      const d = y.i > 0 ? delta(v, ys[y.i - 1][key], u) : '<span class="cd"></span>'; // alltid med, skjules med CSS
       return `<td class="${on ? 'on' : ''}${v == null ? ' na' : ''}">${txt}${d}</td>`;
     }).join('')}</tr>`;
   }
-  return { html: `<div class="tbl-wrap"><table class="fin"><thead><tr><th scope="col">${unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kr'}</th>${cols.map(y => `<th scope="col" class="${y.i === si ? 'on' : ''}" data-yi="${y.i}" tabindex="0" aria-label="Velg ${y.y}">${y.y}</th>`).join('')}</tr></thead><tbody>${html}</tbody></table></div>`, unit };
+  return { html: `<div class="tbl-wrap"><table class="fin${cmp ? '' : ' nocmp'}"><thead><tr><th scope="col">${unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kr'}</th>${cols.map(y => `<th scope="col" class="${y.i === si ? 'on' : ''}" data-yi="${y.i}" tabindex="0" aria-label="Velg ${y.y}">${y.y}</th>`).join('')}</tr></thead><tbody>${html}</tbody></table></div>`, unit };
 }
 
 const OWN_C = ['#EF7140', '#111', '#6b6f76', '#cfcfcf', '#9a9ea4'];
@@ -708,17 +705,42 @@ function ownershipBlock(id, name) {
       ${hold.length ? `<div class="vt" style="margin-top:${direct.length ? 24 : 0}px">${esc(name)} eier selv</div><table class="mini" style="margin-top:8px"><tbody>${hold.map(e => `<tr data-href="#/selskap/${e.selskap}"><td>${esc(E(e.selskap).navn)}</td><td>${pc(e.andel)}</td></tr>`).join('')}</tbody></table>` : ''}
     </div></div>`;
 }
+const ROLE_COLS = [
+  ['Ledelse', ['DAGL', 'INNH', 'FFØR', 'BEST', 'KOMP', 'DTPR', 'DTSO']],
+  ['Styret', ['LEDE', 'NEST', 'MEDL', 'VARA', 'OBS']],
+  ['Revisor og regnskap', ['REVI', 'REGN']],
+];
 function rolesBlock(ro) {
-  const gs = (ro?.rollegrupper || []).map(gr => ({ t: gr.type.beskrivelse, r: gr.roller.filter(r => !r.fratraadt && !r.avregistrert) })).filter(x => x.r.length);
+  const all = (ro?.rollegrupper || []).flatMap(gr => gr.roller).filter(r => !r.fratraadt && !r.avregistrert);
   const people = Object.entries(OWN.enheter).filter(([, e]) => e.type === 'person');
-  const body = gs.length ? gs.map(gr => `<div class="lab nl" style="margin:16px 0 8px">${esc(gr.t)}</div><div class="roles">${gr.r.map(r => {
-    const n = r.person ? [r.person.navn?.fornavn, r.person.navn?.mellomnavn, r.person.navn?.etternavn].filter(Boolean).join(' ') : nice([].concat(r.enhet?.navn || []).join(' '));
-    const yr = r.person?.fodselsdato ? ` · f. ${r.person.fodselsdato.slice(0, 4)}` : '';
+  const nameOf = r => (r.person ? [r.person.navn?.fornavn, r.person.navn?.mellomnavn, r.person.navn?.etternavn].filter(Boolean).join(' ') : nice([].concat(r.enhet?.navn || []).join(' ')));
+  const order = ['DAGL', 'LEDE', 'NEST', 'MEDL', 'VARA'];
+  const cols = ROLE_COLS.map(([t, codes]) => [t, all.filter(r => codes.includes(r.type.kode)).sort((a, b) => order.indexOf(a.type.kode) - order.indexOf(b.type.kode))]);
+  const known = ROLE_COLS.flatMap(c => c[1]);
+  const rest = all.filter(r => !known.includes(r.type.kode));
+  if (rest.length) cols.push(['Andre roller', rest]);
+  const item = r => {
+    const n = nameOf(r), yr = r.person?.fodselsdato ? ` · f. ${r.person.fodselsdato.slice(0, 4)}` : '';
     const match = people.find(([, e]) => e.navn.toLowerCase() === n.toLowerCase());
     const link = match ? `#/person/${match[0]}` : r.enhet?.organisasjonsnummer ? `#/selskap/${r.enhet.organisasjonsnummer}` : '';
-    return `<${link ? `a href="${link}"` : 'div'} class="role glass"><span class="av ${r.person ? 'pe' : ''}">${esc(ini(n))}</span><div><b>${esc(n)}</b><span>${esc(r.type.beskrivelse)}${yr}${match ? ' · se eierskap →' : ''}</span></div></${link ? 'a' : 'div'}>`;
-  }).join('')}</div>`).join('') : '<p class="muted">Ingen roller registrert.</p>';
-  return `<div class="block-h"><div><h2 class="h2">Hvem leder selskapet?</h2><p>Styre, ledelse, revisor og regnskapsfører fra Enhetsregisteret.</p></div></div>${body}`;
+    const lead = ['DAGL', 'LEDE'].includes(r.type.kode);
+    return `<${link ? `a href="${link}"` : 'div'} class="pp"><span class="av ${r.person ? 'pe' : ''} ${lead ? 'lead' : ''}">${esc(ini(n))}</span><div><b>${esc(n)}</b><span>${esc(r.type.beskrivelse)}${yr}${match ? ' · se eierskap' : ''}</span></div></${link ? 'a' : 'div'}>`;
+  };
+  const board = cols[1][1];
+  const dl = all.find(r => r.type.kode === 'DAGL'), sl = all.find(r => r.type.kode === 'LEDE'), rev = all.find(r => r.type.kode === 'REVI');
+  const summary = [
+    dl && `Daglig leder: <b>${esc(nameOf(dl))}</b>`,
+    board.length && `<b>${board.length}</b> i styret`,
+    dl && sl && nameOf(dl) === nameOf(sl) && 'Samme person er daglig leder og styreleder',
+    rev ? `Revisor: <b>${esc(nameOf(rev))}</b>` : 'Ingen revisor',
+  ].filter(Boolean).join('<span class="dot"></span>');
+  const body = all.length ? `<div class="org glass">
+    <div class="org-sum">${summary}</div>
+    <div class="org-cols">${cols.filter(c => c[1].length).map(([t, rs]) => `<div class="org-col ${rs.length > 3 ? 'wide' : ''}"><div class="org-t">${t}<span class="num">${rs.length}</span></div>
+      ${t === 'Styret' && rs.length > 1 ? `<div class="stack" aria-hidden="true">${rs.map(r => `<span class="av pe ${r.type.kode === 'LEDE' ? 'lead' : ''}">${esc(ini(nameOf(r)))}</span>`).join('')}</div>` : ''}
+      <div class="pp-grid">${rs.slice(0, 6).map(item).join('')}${rs.length > 6 ? `<div class="pp-more" hidden>${rs.slice(6).map(item).join('')}</div>` : ''}</div>
+      ${rs.length > 6 ? `<button class="lnk" type="button" data-more-roles style="font-size:13px;margin-top:6px">Vis alle ${rs.length}</button>` : ''}</div>`).join('')}</div></div>` : '<p class="muted">Ingen roller registrert.</p>';
+  return `<div class="block-h"><div><h2 class="h2">Hvem leder selskapet?</h2></div><span class="muted" style="font-size:12px">Kilde: Enhetsregisteret</span></div>${body}`;
 }
 
 function skeleton() {
@@ -751,7 +773,7 @@ async function company(id) {
   ];
   V.innerHTML = `<div class="co-page">
   <section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap">
-    <div class="lab nl"><a href="#/" class="lnk" style="border:0;padding:0">ddai</a><span>/</span><span>${demo ? 'Eksempelselskap' : esc(ent.naeringskode1?.beskrivelse || 'Selskap')}</span></div>
+    <div class="crumb"><a href="#/">ddai</a><span>/</span><span>${demo ? 'Eksempelselskap' : esc(ent.naeringskode1?.beskrivelse || 'Selskap')}</span></div>
     <div class="co-top">
       <div><h1>${esc(name)}</h1>${hn.length ? `<p class="was">Tidligere navn: ${hn.map(esc).join(', ')}</p>` : ''}
         <div class="chips" style="margin-top:18px">${demo ? '<span class="demo">Eksempeldata</span>' : ''}${ent?.konkurs || ent?.underAvvikling || ent?.underTvangsavviklingEllerTvangsopplosning ? '<span class="chip ex">Konkurs eller avvikling</span>' : ''}${ent?.hjemmeside ? `<a class="chip" href="https://${esc(ent.hjemmeside.replace(/^https?:\/\//, ''))}" target="_blank" rel="noopener">${esc(ent.hjemmeside)} ${ic('ext')}</a>` : ''}</div>
@@ -796,9 +818,11 @@ async function company(id) {
       const isPct = metric.startsWith('r_'), v = L[metric], p = Pv?.[metric];
       $('#cv').innerHTML = `<strong class="num">${isPct ? pc(v) : kr(v)}</strong><span>${Pv && v != null && p != null ? (isPct ? `<span class="${v - p >= 0 ? 'up' : 'dn'}">${v - p >= 0 ? '▲' : '▼'} ${dec(Math.abs(v - p), 1)} poeng</span>` : arrow(chg(v, p))) + ` <span class="muted">fra ${Pv.y}</span>` : `<span class="muted">${METRICS.find(m => m[0] === metric)[1]} ${L.y}</span>`}</span>`;
       $('#chart').innerHTML = chartSVG(ys, metric, si, $('#chart').clientWidth);
-      const t = finTable(ys, si, cmp); $('#tbl').innerHTML = t.html; $('#unit').innerHTML = cmp ? 'Endring fra året før: <span class="up">▲ økning</span> · <span class="dn">▼ nedgang</span>' : (t.unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kroner');
+      const t = finTable(ys, si, cmp); $('#tbl').innerHTML = t.html; unit = t.unit; setUnit();
     }
   };
+  let unit = 1;
+  const setUnit = () => { const el = $('#unit'); if (el) el.innerHTML = cmp ? 'Endring fra året før: <span class="up">▲ økning</span> · <span class="dn">▼ nedgang</span>' : (unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kroner'); };
   const setYear = i => { si = Math.max(0, Math.min(ys.length - 1, i)); tipHide(); draw(); };
   onV('click', e => {
     const y = e.target.closest('[data-y]'); if (y) setYear(si + +y.dataset.y);
@@ -808,7 +832,9 @@ async function company(id) {
     const go = e.target.closest('[data-go]'); if (go) $('#' + go.dataset.go)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const tr = e.target.closest('tr[data-href]'); if (tr) location.hash = tr.dataset.href;
     const sw = e.target.closest('[data-cmp]');
-    if (sw) { cmp = !cmp; sw.setAttribute('aria-checked', cmp); try { localStorage.setItem('ddai.cmp', cmp ? '1' : '0'); } catch (er) { /* */ } draw(); }
+    if (sw) { cmp = !cmp; sw.setAttribute('aria-checked', cmp); try { localStorage.setItem('ddai.cmp', cmp ? '1' : '0'); } catch (er) { /* */ } $('table.fin')?.classList.toggle('nocmp', !cmp); setUnit(); }
+    const mr = e.target.closest('[data-more-roles]');
+    if (mr) { const m = mr.parentElement.querySelector('.pp-more'); m.hidden = !m.hidden; mr.textContent = m.hidden ? `Vis alle ${mr.parentElement.querySelectorAll('.pp').length}` : 'Vis færre'; }
     const mo = e.target.closest('[data-more]');
     if (mo) { const d = $('#desc'); d.classList.toggle('open'); mo.textContent = d.classList.contains('open') ? 'Vis mindre' : 'Vis mer'; }
     const cp = e.target.closest('[data-copy]');
@@ -835,9 +861,18 @@ async function company(id) {
     tr.addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); tr.scrollBy({ left: (e.key === 'ArrowRight' ? 1 : -1) * step(), behavior: 'smooth' }); } });
     upd();
   }
-  // Scrollspy for seksjonsmenyen
-  const spy = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) $$('.subnav [data-go]').forEach(a => a.classList.toggle('on', a.dataset.go === e.target.id)); }), { rootMargin: '-35% 0px -60% 0px' });
-  $$('.block').forEach(b => spy.observe(b));
+  // Scrollspy: marker den siste seksjonen som har passert under seksjonsmenyen
+  const blocks = $$('.block'), tabsEl = $$('.subnav [data-go]');
+  let spyRaf = 0;
+  const spy = () => {
+    spyRaf = 0;
+    let cur = blocks[0]?.id;
+    for (const b of blocks) if (b.getBoundingClientRect().top <= 170) cur = b.id;
+    if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) cur = blocks[blocks.length - 1]?.id;
+    tabsEl.forEach(a => a.classList.toggle('on', a.dataset.go === cur));
+  };
+  addEventListener('scroll', () => { if (!spyRaf) spyRaf = requestAnimationFrame(spy); }, { passive: true, signal: pageAC.signal });
+  spy();
   let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(draw, 150); }, { signal: pageAC.signal });
   draw();
 }
@@ -857,7 +892,7 @@ async function person(id) {
   const all = (nodes, f) => nodes.forEach(n => { f(n); all(n.kids, f); });
   V.innerHTML = `
   <section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap">
-    <div class="lab nl"><a href="#/eiere" class="lnk" style="border:0;padding:0">Eiersøk</a><span>/</span><span>Person</span></div>
+    <div class="crumb"><a href="#/eiere">Eiersøk</a><span>/</span><span>Person</span></div>
     <h1 class="h1" style="font-size:clamp(40px,5.8vw,88px)">${esc(p.navn)}</h1>
     <p class="lead" style="margin-top:20px">Eier noe i <b>${agg.size} selskaper</b> – ${direct} direkte og ${agg.size - direct} gjennom andre selskaper.</p>
     <div class="chips" style="margin-top:18px"><span class="chip">${esc(p.sted)}</span><span class="demo">Eksempeldata</span></div>
@@ -928,7 +963,7 @@ async function owners() {
       <div class="rv"><span>03</span><h3>Samlet eierskap</h3><p>Eier du det samme selskapet gjennom flere veier, legger vi sammen alle veiene til én total andel.</p></div>
     </div></div></section>`;
   constellation($('.ph .field'));
-  $('#os').append(makeSearch({ mode: 'hero', placeholder: 'Søk på en person, f.eks. Petter Sommerseth' }).el);
+  $('#os').append(makeSearch({ mode: 'hero', placeholder: 'Søk etter en person eller et selskap' }).el);
 }
 
 function about() {

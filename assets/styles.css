@@ -29,7 +29,7 @@ main{flex:1}
 
 /* Header */
 .hd{position:fixed;top:10px;left:var(--pad);right:var(--pad);z-index:50;display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:52px;padding:7px 7px 7px 22px;border-radius:999px;transition:left .8s var(--ease),right .8s var(--ease),transform .45s var(--ease)}
-body.scr .hd{left:max(var(--pad),calc(50% - 560px));right:max(var(--pad),calc(50% - 560px))}
+body.scr .hd{left:max(var(--pad),calc(50% - var(--max)/2 + var(--pad)));right:max(var(--pad),calc(50% - var(--max)/2 + var(--pad)))}
 .lgo{display:inline-flex;align-items:center;gap:.4em;font-size:21px;font-weight:600;letter-spacing:-.03em;line-height:1}
 .lgo svg{width:.95em;height:.95em;fill:currentColor;transition:transform .7s var(--ease)}
 .lgo:hover svg{transform:rotate(90deg)}
@@ -122,7 +122,7 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .sbox .go:hover{box-shadow:0 8px 20px rgba(239,113,64,.45)}
 .sbox:focus-within{box-shadow:inset 0 1.5px 1px rgba(255,255,255,.9),0 0 0 2px var(--ac),0 8px 30px rgba(10,20,30,.14)}
 .drop{position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:40;max-height:min(460px,60vh);overflow-y:auto;text-align:left;padding:6px;background:rgba(250,249,246,.86);-webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);border:1px solid rgba(255,255,255,.75);box-shadow:0 24px 60px rgba(10,20,30,.18);border-radius:4px}
-.drop .sec-h{padding:10px 12px 4px;font-size:11px;text-transform:lowercase;letter-spacing:.01em;color:var(--mut)}
+.drop .sec-h{padding:10px 12px 4px;font-size:12px;font-weight:500;color:var(--mut)}
 .it{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:4px;cursor:pointer}
 .it.act,.it:hover{background:rgba(255,255,255,.85)}
 .it b{font-weight:500;display:block;line-height:1.25}
@@ -316,11 +316,13 @@ table.fin thead th:first-child{z-index:3;cursor:default}
 table.fin td.on{background:rgba(239,113,64,.06)}
 table.fin tbody tr:hover td{background:var(--bg2)}
 table.fin tbody tr:hover td.on{background:rgba(239,113,64,.1)}
-table.fin tr.grp td{height:34px;vertical-align:bottom;padding-bottom:6px;font-size:12px;text-transform:lowercase;color:var(--mut);border-bottom:1px solid var(--ln);background:var(--bg)!important;font-weight:500}
+table.fin tr.grp td{height:36px;font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);background:var(--bg2)!important;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);box-shadow:inset 3px 0 0 var(--ac)}
+table.fin tr.gap td{height:22px;border:0;background:transparent!important;padding:0}
 table.fin tr.sum td{font-weight:600;border-top:1px solid var(--ink)}
 table.fin .rl{display:inline-flex;align-items:center;gap:6px}
 table.fin td.na{color:#c0c0c0}
-.cd{display:inline-block;min-width:66px;text-align:right;font-size:11px;font-weight:500;margin-left:10px;color:var(--mut)}
+.cd{display:inline-block;min-width:66px;text-align:right;font-size:11px;font-weight:500;margin-left:10px;color:var(--mut);transition:opacity .2s}
+table.fin.nocmp .cd{opacity:0}
 .cd.up{color:var(--up)}.cd.dn{color:var(--down)}.cd.na{color:#cfcfcf}
 .tbl-foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:10px 14px;font-size:12px;color:var(--mut);background:var(--bg)}
 .switch{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:500;user-select:none}
@@ -380,6 +382,36 @@ a.role:hover{transform:translateY(-3px)}
 .nrow .open-l:hover{background:var(--ac);border-color:var(--ac)}
 .kids{animation:kin .45s var(--ease)}
 @keyframes kin{from{opacity:0;transform:translateY(-6px)}}
+
+/* Brødsmuler */
+.crumb{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--mut);margin-bottom:12px}
+.crumb a{color:var(--ink);font-weight:500}
+.crumb a:hover{color:var(--ac)}
+
+/* Roller som infografikk */
+.org{padding:0;overflow:hidden}
+.org-sum{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:12px 18px;font-size:13px;color:var(--mut);border-bottom:1px solid rgba(0,0,0,.06);background:rgba(255,255,255,.35)}
+.org-sum b{color:var(--ink);font-weight:500}
+.org-sum .dot{width:3px;height:3px;border-radius:50%;background:#c4c4c4}
+.org-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.pp-grid,.pp-more{display:grid;grid-template-columns:1fr;gap:0 18px}
+.pp-more{grid-column:1/-1}
+.pp-more[hidden]{display:none}
+@media(min-width:900px){.org-col.wide{grid-column:span 2}.org-col.wide .pp-grid,.org-col.wide .pp-more{grid-template-columns:1fr 1fr}}
+.org-col{padding:14px 18px 12px;border-left:1px solid rgba(0,0,0,.06)}
+.org-col:first-child{border-left:0}
+.org-t{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;margin-bottom:8px}
+.org-t .num{font-size:12px;font-weight:500;color:var(--mut);background:rgba(0,0,0,.05);border-radius:99px;padding:1px 8px}
+.stack{display:flex;margin:2px 0 10px}
+.stack .av{width:30px;height:30px;font-size:11px;margin-left:-8px;border:2px solid var(--bg)}
+.stack .av:first-child{margin-left:0}
+.pp{display:flex;gap:10px;align-items:center;padding:6px 0;transition:transform .3s var(--ease)}
+a.pp:hover{transform:translateX(3px)}
+a.pp:hover b{color:var(--ac)}
+.pp .av{width:30px;height:30px;font-size:11px}
+.pp b{display:block;font-weight:500;font-size:14px;line-height:1.25;transition:color .2s}
+.pp span:not(.av){font-size:12px;color:var(--mut)}
+.av.lead{box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--ac)}
 
 /* Kompakt selskapsside */
 .co-page .ph{padding:100px 0 16px}
