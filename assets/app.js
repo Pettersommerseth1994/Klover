@@ -481,18 +481,18 @@ async function toplists(q) {
   st.liste = p0.k;
   st.min = q.has('min') ? +q.get('min') : p0.min || 0;
   let open = false;
-  V.innerHTML = `
+  V.innerHTML = `<div class="tl-page">
   <section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap"><div class="lab nl">Topplister</div><div id="tl-h"></div></div></section>
-  <div class="wrap" style="padding-bottom:110px">
+  <div class="wrap" style="padding-bottom:80px">
     <div class="lists" role="tablist" aria-label="Velg toppliste">${PRESETS.map(x => `<button class="chip" role="tab" data-l="${x.k}">${esc(x.t)}</button>`).join('')}</div>
     <div class="tb glass" id="tb"></div>
     <div class="fpanel glass" id="fp" hidden></div>
     <div class="active-f" id="af"></div>
     <p class="sr" aria-live="polite" id="cnt"></p>
-    <div class="rows" id="rows"></div>
-    <div id="more" style="text-align:center;margin-top:24px"></div>
+    <div class="rows glass" id="rows"></div>
+    <div id="more" style="text-align:center;margin-top:16px"></div>
     <p class="note">${ic('clock')} <span>Eksempelutvalg på ${nf.format(TOP.selskaper.length)} selskaper: de største og et utvalg mellomstore i hvert fylke, hentet ${fmtDate(TOP.generert)}. Utbytte er estimert som årsresultat minus endring i opptjent egenkapital.</span></p>
-  </div>`;
+  </div></div>`;
   starField($('.ph .field'), { mode: 'breathe', sp: 11 });
   const sync = () => {
     const o = new URLSearchParams();
@@ -505,7 +505,7 @@ async function toplists(q) {
     const max = Math.max(...rows.map(r => Math.abs(r.v)), 1);
     const where = st.kommune || st.fylke || 'hele Norge';
     document.title = `${p.t} i ${where} – ddai`;
-    $('#tl-h').innerHTML = `<h1 class="h1" style="font-size:clamp(40px,5.8vw,88px)">${esc(p.t)}<br><span class="muted">i ${esc(where)}</span></h1><p class="lead" style="margin-top:20px">${esc(p.s)} · regnskapsår ${st.år}.</p>`;
+    $('#tl-h').innerHTML = `<h1 class="h1">${esc(p.t)} <span class="muted">i ${esc(where)}</span></h1><p class="lead">${esc(p.s)} · regnskapsår ${st.år}.</p>`;
     $$('[data-l]').forEach(b => { b.classList.toggle('on', b.dataset.l === st.liste); b.setAttribute('aria-selected', b.dataset.l === st.liste); });
     const kommuner = [...new Set(TOP.selskaper.filter(c => !st.fylke || c.fylke === st.fylke).map(c => c.kommune))].sort((a, b) => a.localeCompare(b, 'nb'));
     $('#tb').innerHTML = `${sel('fylke', [['', 'Hele landet'], ...FYLKER.map(f => [f, f])], st.fylke, 'Fylke')}${sel('år', [['2025', '2025'], ['2024', '2024'], ['2023', '2023']], st.år, 'Regnskapsår')}${sel('dir', [[0, p.dir < 0 ? 'Høyest først' : 'Lavest først'], [p.dir < 0 ? 1 : -1, p.dir < 0 ? 'Lavest først' : 'Høyest først']], st.dir, 'Rekkefølge')}
@@ -522,10 +522,10 @@ async function toplists(q) {
     ].filter(Boolean);
     $('#af').innerHTML = af.length ? af.map(([k, t]) => `<button class="chip ex" data-rm="${k}" aria-label="Fjern filter ${esc(t)}">${esc(t)}<span class="x" aria-hidden="true">✕</span></button>`).join('') + '<button class="lnk" data-a="reset" style="font-size:13px;margin-left:6px">Nullstill</button>' : '';
     $('#cnt').textContent = `${nf.format(total)} selskaper passer filtrene`;
-    $('#rows').innerHTML = rows.length ? rows.map((r, i) => `<a class="rrow glass" href="#/selskap/${r.c.org}"><span class="rn num">${String(i + 1).padStart(2, '0')}</span>
+    $('#rows').innerHTML = rows.length ? rows.map((r, i) => `<a class="rrow" href="#/selskap/${r.c.org}"><span class="rn num">${String(i + 1).padStart(2, '0')}</span>
       <div style="min-width:0"><b>${esc(nice(r.c.navn))}</b><span class="s">${esc(r.c.kommune)} · ${esc(r.c.bransje)}</span></div>
       <div class="val"><strong class="num">${p.f(r.v)}</strong><span class="s">${esc(p.sub(r.y) || '')}</span><div class="bar"><i style="width:${Math.max(2, Math.abs(r.v) / max * 100)}%"></i></div></div></a>`).join('')
-      : '<div class="glass empty">Ingen selskaper passer filtrene. <button class="lnk" data-a="reset">Nullstill filtrene</button></div>';
+      : '<div class="empty">Ingen selskaper passer filtrene. <button class="lnk" data-a="reset">Nullstill filtrene</button></div>';
     $('#more').innerHTML = total > rows.length ? `<button class="btn" data-a="more">Vis flere (${nf.format(Math.min(25, total - rows.length))} til)</button>` : '';
     sync();
   };
@@ -660,7 +660,7 @@ const ROWS = [
   ['Egenkapitalrentabilitet', 'r_ekr', 0, '%'], ['Likviditetsgrad 1', 'r_lik', 0, 'x'], ['Lønn i % av inntekter', 'r_lonn', 0, '%'],
 ];
 function finTable(ys, si, cmp) {
-  const cols = ys.map((y, i) => ({ ...y, i })).reverse();
+  const cols = ys.map((y, i) => ({ ...y, i })); // eldste år først, nyeste sist
   const big = Math.max(...ys.map(y => Math.abs(y.rev || 0)), ...ys.map(y => Math.abs(y.ass || 0)));
   const unit = big >= 1e7 ? 1000 : 1;
   const na = '<span class="cd na">–</span>';
@@ -682,7 +682,7 @@ function finTable(ys, si, cmp) {
     html += `<tr class="${sum ? 'sum' : ''}"><td><span class="rl">${label}${info(key, label)}</span></td>${cols.map(y => {
       const v = y[key], on = y.i === si;
       const txt = v == null ? '–' : u === '%' ? pc(v) : u === 'x' ? dec(v, 2) : nf.format(Math.round(v / unit));
-      const d = y.i > 0 ? delta(v, ys[y.i - 1][key], u) : '<span class="cd"></span>'; // alltid med, skjules med CSS
+      const d = y.i > 0 ? delta(v, ys[y.i - 1][key], u) : ''; // alltid med (unntatt eldste år), skjules med CSS
       return `<td class="${on ? 'on' : ''}${v == null ? ' na' : ''}">${txt}${d}</td>`;
     }).join('')}</tr>`;
   }

@@ -312,6 +312,8 @@ table.fin th,table.fin td{padding:0 14px;height:31px;border-bottom:1px solid #ee
 table.fin thead th{position:sticky;top:0;background:rgba(254,253,250,.96);font-size:12px;font-weight:500;color:var(--mut);height:36px;border-bottom:1px solid var(--ink);cursor:pointer;z-index:2}
 table.fin thead th.on{color:var(--ink);font-weight:600;box-shadow:inset 0 -3px 0 var(--ac)}
 table.fin th:first-child,table.fin td:first-child{text-align:left;position:sticky;left:0;background:var(--bg);z-index:1;min-width:210px}
+/* Årskolonnene krymper til innholdet og samles til høyre */
+table.fin th:not(:first-child),table.fin td:not(:first-child){width:1%;padding-left:26px}
 table.fin thead th:first-child{z-index:3;cursor:default}
 table.fin td.on{background:rgba(239,113,64,.06)}
 table.fin tbody tr:hover td{background:var(--bg2)}
@@ -382,6 +384,41 @@ a.role:hover{transform:translateY(-3px)}
 .nrow .open-l:hover{background:var(--ac);border-color:var(--ac)}
 .kids{animation:kin .45s var(--ease)}
 @keyframes kin{from{opacity:0;transform:translateY(-6px)}}
+
+/* Kompakt topplisteside */
+.tl-page .ph{padding:100px 0 14px}
+.tl-page .ph .lab{margin-bottom:12px}
+.tl-page h1.h1{font-size:clamp(28px,3.4vw,46px);letter-spacing:-.04em;line-height:1.05}
+.tl-page .lead{font-size:15px;margin-top:8px}
+.tl-page .lists{padding:2px 0 10px}
+.tl-page .lists .chip{font-size:12.5px;padding:4px 11px}
+.tl-page .tb{padding:8px;margin-bottom:10px;gap:8px}
+.tl-page .sel select{height:34px;font-size:13px}
+.tl-page .tb .btn{padding:7px 12px;font-size:13px}
+.tl-page .fpanel{padding:12px;gap:10px;margin-bottom:10px}
+.tl-page .active-f{margin-bottom:10px;min-height:0}
+.tl-page .rows{gap:0;overflow:hidden}
+.tl-page .rrow{grid-template-columns:36px 1fr minmax(130px,200px);gap:14px;padding:9px 16px;border-top:1px solid rgba(0,0,0,.06)}
+.tl-page .rrow:first-child{border-top:0}
+.tl-page .rrow:hover{padding-left:22px;background:rgba(255,255,255,.5)}
+.tl-page .rrow .rn{font-size:20px;font-weight:400}
+.tl-page .rrow b{font-size:15px;letter-spacing:-.01em}
+.tl-page .rrow .s{font-size:12px}
+.tl-page .rrow{padding:7px 16px}
+.tl-page .rrow .val{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:12px}
+.tl-page .rrow .val strong{font-size:15px;grid-column:2;grid-row:1}
+.tl-page .rrow .val .bar{grid-column:1;grid-row:1;margin:0}
+.tl-page .rrow .val .s{font-size:11px;grid-column:1/-1}
+.fpanel[hidden]{display:none}
+.tl-page .note{margin-top:12px;font-size:12px}
+@media(max-width:900px){
+  .tl-page .ph{padding:90px 0 12px}
+  .tl-page .rrow{grid-template-columns:30px 1fr;gap:2px 12px;padding:10px 14px}
+  .tl-page .rrow:hover{padding-left:14px}
+  .tl-page .rrow .rn{grid-row:1/3;font-size:18px}
+  .tl-page .rrow .val{grid-column:2;text-align:left}
+  .tl-page .rrow .val .s{display:none}
+}
 
 /* Brødsmuler */
 .crumb{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--mut);margin-bottom:12px}
