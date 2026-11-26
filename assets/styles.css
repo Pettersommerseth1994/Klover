@@ -92,9 +92,10 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 @keyframes bl{to{visibility:hidden}}
 
 /* Hero */
-.hero{position:relative;min-height:min(92svh,940px);display:flex;align-items:center;overflow:hidden;padding:130px 0 90px}
+/* overflow-x:clip (ikke hidden): bakgrunnen klippes på sidene, men søkeforslagene kan gå ned over neste seksjon */
+.hero{position:relative;min-height:min(92svh,940px);display:flex;align-items:center;overflow-x:clip;padding:130px 0 90px}
 .hero .field{-webkit-mask-image:radial-gradient(ellipse 44% 46% at 50% 47%,transparent 0%,transparent 38%,rgba(0,0,0,.35) 68%,#000 100%),linear-gradient(to bottom,#000 72%,transparent 100%);-webkit-mask-composite:source-in;mask-image:radial-gradient(ellipse 44% 46% at 50% 47%,transparent 0%,transparent 38%,rgba(0,0,0,.35) 68%,#000 100%),linear-gradient(to bottom,#000 72%,transparent 100%);mask-composite:intersect}
-.hero .wrap{position:relative;z-index:2;width:100%;text-align:center}
+.hero .wrap{position:relative;z-index:5;width:100%;text-align:center}
 .eb{display:inline-flex;align-items:center;gap:10px;padding:6px 14px;border-radius:999px;font-size:13px;margin-bottom:30px;opacity:0;filter:blur(10px);transform:translateY(.5em);animation:chin .9s var(--ease) .9s both}
 .eb{cursor:pointer;font-size:14px;padding:6px 6px 6px 16px;gap:12px;color:var(--ink);text-align:left;transition:box-shadow .3s}
 .eb:hover{box-shadow:inset 0 1.5px 1px rgba(255,255,255,.9),0 12px 34px rgba(10,20,30,.18)}
@@ -128,7 +129,7 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .sbox .go{height:48px;padding:0 22px;border-radius:999px;background:var(--ac);color:var(--ink);font-weight:500;font-size:15px;transition:box-shadow .3s}
 .sbox .go:hover{box-shadow:0 8px 20px rgba(239,113,64,.45)}
 .sbox:focus-within{box-shadow:inset 0 1.5px 1px rgba(255,255,255,.9),0 0 0 2px var(--ac),0 8px 30px rgba(10,20,30,.14)}
-.drop{position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:40;max-height:min(460px,60vh);overflow-y:auto;text-align:left;padding:6px;background:rgba(250,249,246,.86);-webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);border:1px solid rgba(255,255,255,.75);box-shadow:0 24px 60px rgba(10,20,30,.18);border-radius:4px}
+.drop{position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:40;max-height:min(460px,60vh);overflow-y:auto;text-align:left;padding:6px;background:rgba(250,249,246,.97);-webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);border:1px solid rgba(255,255,255,.75);box-shadow:0 24px 60px rgba(10,20,30,.18);border-radius:4px}
 .drop .sec-h{padding:10px 12px 4px;font-size:12px;font-weight:500;color:var(--mut)}
 .it{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:4px;cursor:pointer}
 .it.act,.it:hover{background:rgba(255,255,255,.85)}
@@ -206,9 +207,9 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 @keyframes sp{to{transform:rotate(360deg)}}
 
 /* Sideheader (undersider) */
-.ph{position:relative;padding:150px 0 50px;overflow:hidden}
+.ph{position:relative;padding:150px 0 50px;overflow-x:clip}
 .ph .field{-webkit-mask-image:radial-gradient(ellipse 52% 60% at 82% 40%,#000 15%,transparent 100%);mask-image:radial-gradient(ellipse 52% 60% at 82% 40%,#000 15%,transparent 100%)}
-.ph .wrap{position:relative;z-index:2}
+.ph .wrap{position:relative;z-index:5}
 
 /* Topplister */
 .tb{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px;margin-bottom:16px}
@@ -248,9 +249,9 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .copy:after,.info:after{content:'';position:absolute;inset:-12px}
 .copy:hover{color:var(--ac)}
 .subnav{position:sticky;top:72px;z-index:30;margin:30px 0 40px;display:flex;align-items:center;gap:6px;padding:6px;border-radius:999px;transition:top .4s var(--ease)}
-.subnav .tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1}
+.subnav .tabs{position:relative;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1}
 .subnav .tabs::-webkit-scrollbar{display:none}
-.subnav .tabs a{padding:8px 16px;border-radius:999px;font-size:14px;color:var(--mut);white-space:nowrap;transition:background .25s,color .25s}
+.subnav .tabs a{position:relative;z-index:1;padding:8px 16px;border-radius:999px;font-size:14px;color:var(--mut);white-space:nowrap;transition:background .25s,color .25s}
 .subnav .tabs a:hover{color:var(--ink)}
 .subnav .tabs a.on{background:var(--ink);color:#fff}
 /* Ikoner og nedtrekksknapp brukes bare i mobilmenyen */
@@ -301,11 +302,18 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .chart-card{padding:24px 26px 16px}
 .chart-h{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 /* Segmentert bryter: grå skinne, det valgte er en hvit «tommel» med skygge */
-.seg{display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:#ebe9e3;box-shadow:inset 0 1px 2px rgba(0,0,0,.06)}
-.seg button{padding:8px 16px;font-size:13px;font-weight:500;line-height:1.25;color:var(--mut);border-radius:6px;white-space:nowrap;transition:background .2s,color .2s,box-shadow .2s}
+.seg{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;padding:3px;border-radius:8px;background:#ebe9e3;box-shadow:inset 0 1px 2px rgba(0,0,0,.06)}
+.seg button{position:relative;z-index:1;padding:8px 16px;font-size:13px;font-weight:500;line-height:1.25;color:var(--mut);border-radius:6px;white-space:nowrap;transition:background .2s,color .2s,box-shadow .2s}
 .seg button:hover{color:var(--ink)}
 .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08),0 2px 8px rgba(10,20,30,.08)}
 .seg button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+/* Glidende markering (som i Claude): en «tommel» bak knappene flytter seg til den valgte. Brukes av .seg og seksjonsmenyen */
+.thumb{position:absolute;left:0;top:0;z-index:0;pointer-events:none;transition:transform .25s cubic-bezier(.2,0,0,1),width .25s cubic-bezier(.2,0,0,1),height .25s cubic-bezier(.2,0,0,1),opacity .2s}
+.seg .thumb{border-radius:6px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08),0 2px 8px rgba(10,20,30,.08)}
+.seg[data-thumb] button.on{background:transparent;box-shadow:none}
+.subnav .tabs .thumb{border-radius:999px;background:var(--ink)}
+.subnav .tabs[data-thumb] a.on{background:transparent}
+@media(prefers-reduced-motion:reduce){.thumb{transition:none}}
 .chart-v{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 .chart-v strong{font-size:34px;font-weight:500;letter-spacing:-.04em}
 .chart-v span{font-size:14px}
@@ -688,7 +696,7 @@ table.own-t tbody[hidden]{display:none}
   .rbtn,.co-page .rbtn{width:38px;height:38px}
   .subnav .tabs a,.co-page .subnav .tabs a{padding:10px 14px}
   .seg button,.co-page .seg button{padding:10px 14px;font-size:13px}
-  .tv-bar .seg{flex:1}.tv-bar .seg button{flex:1}
+  .tv-bar .seg{flex:1;grid-auto-columns:minmax(0,1fr)}.tv-bar .seg button{padding:10px 6px}
   .nrow .open-l{width:40px;height:40px}
   .crumb a{min-height:40px;display:inline-flex;align-items:center}
   table.own-t th,table.own-t td.ch,.new{font-size:12px}
@@ -758,7 +766,8 @@ table.own-t tbody[hidden]{display:none}
   .subnav .tabs{position:absolute;left:0;top:calc(100% + 8px);display:none;flex-direction:column;gap:2px;min-width:230px;padding:6px;overflow:visible;background:rgba(250,249,246,.95);-webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);border:1px solid rgba(255,255,255,.8);box-shadow:0 24px 60px rgba(10,20,30,.18);border-radius:16px}
   .subnav.open .tabs{display:flex;animation:kin .3s var(--ease)}
   .subnav .tabs a,.co-page .subnav .tabs a{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;font-size:15px;color:var(--ink)}
-  .subnav .tabs a.on{background:var(--ink);color:#fff}
+  .subnav .tabs a.on,.subnav .tabs[data-thumb] a.on{background:var(--ink);color:#fff}
+  .subnav .tabs .thumb{display:none}
   .subnav .sn-i{display:block}
   .subnav .yearnav{margin-left:auto;border-left:0}
   .subnav .yearnav .lbl{display:inline;font-size:13px}

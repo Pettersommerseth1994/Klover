@@ -8,6 +8,21 @@ const PROXY = 'https://klover-proxy.klover.workers.dev';
 // ---------- Hjelpere ----------
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+// Glidende markering (som i Claude): en «tommel» bak knappene flytter seg til den valgte (.on).
+// Brukes av brytere (.seg) og seksjonsmenyen. Beholderen må ha data-thumb.
+function thumb(el) {
+  if (!el || !el.isConnected) return;
+  let th = el.querySelector(':scope > .thumb');
+  const fresh = !th;
+  if (fresh) { th = document.createElement('span'); th.className = 'thumb'; th.setAttribute('aria-hidden', 'true'); el.prepend(th); }
+  const on = el.querySelector(':scope > .on');
+  if (!on || !on.offsetWidth) { th.style.opacity = '0'; return; }
+  if (fresh) th.style.transition = 'none';
+  Object.assign(th.style, { opacity: '1', width: `${on.offsetWidth}px`, height: `${on.offsetHeight}px`, transform: `translate(${on.offsetLeft}px,${on.offsetTop}px)` });
+  if (fresh) { void th.offsetWidth; th.style.transition = ''; }
+}
+addEventListener('resize', () => $$('[data-thumb]').forEach(thumb));
+document.fonts?.ready.then(() => $$('[data-thumb]').forEach(thumb));
 const V = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = new Intl.NumberFormat('nb-NO');
@@ -973,7 +988,7 @@ async function company(id) {
     </div></div></section>
   <div class="wrap" style="padding-bottom:40px">
     <nav class="subnav glass-hi" aria-label="Seksjoner"><button class="sn-cur" type="button" data-sncur aria-expanded="false" aria-controls="sn-tabs"><span id="sn-cur-t">${tabs[0][1]}</span>${ic('down')}</button>
-      <div class="tabs" id="sn-tabs">${tabs.map(([k, t, icn], i) => `<a href="javascript:void 0" data-go="${k}" class="${i ? '' : 'on'}"><span class="sn-i">${ic(icn)}</span><span class="sn-t">${t}</span></a>`).join('')}</div>
+      <div class="tabs" id="sn-tabs" data-thumb>${tabs.map(([k, t, icn], i) => `<a href="javascript:void 0" data-go="${k}" class="${i ? '' : 'on'}"><span class="sn-i">${ic(icn)}</span><span class="sn-t">${t}</span></a>`).join('')}</div>
       ${ys.length ? `<div class="yearnav" role="group" aria-label="Velg regnskapsår"><span class="lbl">Regnskapsår</span><button class="rbtn" data-y="-1" aria-label="Forrige år">${ic('left')}</button><b class="num" aria-live="polite" id="yr"></b><button class="rbtn" data-y="1" aria-label="Neste år">${ic('right')}</button></div>` : ''}</nav>
     ${!demo ? `<section class="block" id="oversikt"><div class="block-h"><div><h2 class="h2" id="ov-h"></h2><p id="ov-p"></p></div></div><div class="kgrid" id="kpis"></div></section>` : ''}
     ${F.length ? `<section class="block" id="innsikt"><div class="block-h"><div><h2 class="h2">Kjappe fakta</h2><p>Bla gjennom det regnskapet faktisk forteller om ${esc(name)}.</p></div>
@@ -1098,6 +1113,7 @@ async function company(id) {
     for (const b of blocks) if (b.getBoundingClientRect().top <= 170) cur = b.id;
     if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) cur = blocks[blocks.length - 1]?.id;
     tabsEl.forEach(a => a.classList.toggle('on', a.dataset.go === cur));
+    thumb($('#sn-tabs'));
     const ct = $('#sn-cur-t'), on = tabsEl.find(a => a.dataset.go === cur);
     if (ct && on) ct.textContent = on.textContent.trim();
   };
@@ -1268,7 +1284,7 @@ async function person(id) {
   <div class="wrap" style="padding-bottom:110px">
     <div class="block-h"><div><h2 class="h2">Hva eier ${esc(fn)}?</h2><p>Kartet viser alt ${esc(fn)} eier. Prosentene er ${esc(fn)}s reelle andel – ganget gjennom alle ledd og lagt sammen når det finnes flere veier.</p></div></div>
     <div id="pbox"></div>
-    <div class="tv-bar"><div class="seg" id="pmode" role="tablist" aria-label="Visning"><button type="button" role="tab" data-m="tree" class="on" aria-selected="true">Eiertre</button><button type="button" role="tab" data-m="list" aria-selected="false">Samlet oversikt</button></div><button class="btn ghost" data-x>Utvid alle</button></div>
+    <div class="tv-bar"><div class="seg" id="pmode" data-thumb role="tablist" aria-label="Visning"><button type="button" role="tab" data-m="tree" class="on" aria-selected="true">Eiertre</button><button type="button" role="tab" data-m="list" aria-selected="false">Samlet oversikt</button></div><button class="btn ghost" data-x>Utvid alle</button></div>
     <div id="tv"></div>
   </div>`;
   constellation($('.ph .field'));
@@ -1298,7 +1314,8 @@ async function person(id) {
   const render = () => { renderMap(); renderList(); };
   const renderList = () => {
     $('#tv').innerHTML = mode === 'tree' ? `<div class="tree" role="tree" aria-label="Eiertre for ${esc(p.navn)}"><div class="nrow glass" style="cursor:default;transform:none"><span class="av pe">${esc(ini(p.navn))}</span><div class="nm"><b>${esc(p.navn)}</b><span>${agg.size} selskaper totalt</span></div><div class="eff"><b>100 %</b><span>utgangspunkt</span></div></div><div class="node"><div class="kids" role="group">${tree.map(n => nodeHtml(n, fn)).join('')}</div></div></div>` : listHtml();
-    $('[data-x]').style.display = mode === 'tree' ? '' : 'none';
+    $('[data-x]').style.visibility = mode === 'tree' ? '' : 'hidden'; // beholder plassen, så bryteren ikke endrer størrelse
+    thumb($('#pmode'));
   };
   // Trykk i treet: åpne/lukk, og vis selskapet i eierkartet. Raden blir stående der den var på skjermen.
   const toggle = k => {
