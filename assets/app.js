@@ -383,7 +383,7 @@ async function searchAll(q) {
     sub: [fmtOrg(e.organisasjonsnummer), e.organisasjonsform?.kode, nice(e.forretningsadresse?.poststed || e.postadresse?.poststed || '')].filter(Boolean).join(' · ') }));
   return [...out.filter(x => x.kind === 'pe'), ...cos, ...out.filter(x => x.kind === 'co')];
 }
-function makeSearch({ mode = 'hero', placeholder = 'Søk etter selskap, organisasjonsnummer eller person' } = {}) {
+function makeSearch({ mode = 'hero', placeholder = innerWidth < 560 ? 'Søk etter selskap eller person' : 'Søk etter selskap, organisasjonsnummer eller person' } = {}) {
   const w = document.createElement('div');
   w.className = 'search';
   const id = 'sr' + Math.random().toString(36).slice(2, 7);
@@ -524,7 +524,7 @@ async function home() {
   <section class="hero" aria-labelledby="h-hero"><canvas class="field" aria-hidden="true"></canvas>
     ${twinkles([[12, 24, 16, 0], [86, 18, 12, -2], [78, 72, 18, -4], [18, 76, 10, -1], [50, 12, 9, -3]])}
     <div class="wrap">
-      <div class="eb glass-hi"><i></i><span>Lansering!</span></div>
+      <button class="eb glass-hi" type="button" data-scroll="#tl-prev"><span><b>Nytt:</b> Topplister for alle fylker – se hvem som tjener mest der du bor</span><span class="eb-ar" aria-hidden="true">${ic('arrow')}</span></button>
       <h1 class="h1" id="h-hero" aria-label="${words.join(' ')}">${words.map((w, i) => `<span class="w" aria-hidden="true"><span class="wi" style="--i:${i}">${w}</span></span>`).join(' ')}</h1>
       <p class="lead">Søk blant alle norske virksomheter. Se regnskap, eiere og topplister – med forklaringer på det som er vanskelig.</p>
       <div id="hs"></div>
@@ -563,7 +563,7 @@ async function home() {
   constellation($('.feat-vis canvas'));
   if (await regMeta()) { const b = $('[data-expl]'); if (b) b.href = await examplePersonHref(); }
   $('#hs').append(makeSearch({ mode: 'hero' }).el);
-  $('[data-scroll]').addEventListener('click', () => $('#tl-prev').scrollIntoView({ behavior: 'smooth' }));
+  $$('[data-scroll]').forEach(el => el.addEventListener('click', () => $(el.dataset.scroll).scrollIntoView({ behavior: 'smooth', block: 'start' })));
   api('enhetsregisteret/api/enheter?size=1').then(d => {
     const n = d?.page?.totalElements; if (!n) return;
     const el = $('#n-tot'); if (el) { el.dataset.n = n; if (el.closest('.in')) el.textContent = nf.format(n); }
@@ -743,12 +743,12 @@ function ticks(min, max, n = 4) {
   for (let v = Math.floor(min / step) * step; v <= Math.ceil(max / step) * step + step / 2; v += step) out.push(+v.toFixed(10));
   return out;
 }
-function chartSVG(ys, key, si, cw = 820) {
+function chartSVG(ys, key, si, cw = 820, hh = 0) {
   const isPct = key.startsWith('r_'), fmt = v => (isPct ? pc(v) : kr(v)), short = v => (isPct ? pc(v, 0) : krShort(v));
   const label = METRICS.find(m => m[0] === key)[1];
   const vals = ys.map(y => y[key]);
   const T = ticks(Math.min(0, ...vals.filter(v => v != null)), Math.max(0, ...vals.filter(v => v != null)));
-  const W = Math.max(300, Math.round(cw)), sm = W < 560, H = sm ? 200 : 230, L = sm ? 50 : 64, R = 8, Tp = 30, B = 40, lo = T[0], hi = T.at(-1);
+  const W = Math.max(300, Math.round(cw)), sm = W < 560, H = hh || (sm ? 200 : 230), L = sm ? 50 : 64, R = 8, Tp = 30, B = 40, lo = T[0], hi = T.at(-1);
   const Y = v => Tp + (hi - v) / (hi - lo) * (H - Tp - B);
   const n = ys.length, plotW = W - L - R, gap = sm ? 10 : 14;
   const bw = Math.min(sm ? 64 : 112, (plotW - gap * (n - 1)) / n * .8), x0 = L + (plotW - (n * bw + (n - 1) * gap)) / 2;
@@ -767,6 +767,47 @@ function chartSVG(ys, key, si, cw = 820) {
   });
   return s + '</svg>';
 }
+// Forslag B: linjegraf med flate og punkter
+function lineSVG(ys, key, si, cw = 820) {
+  const isPct = key.startsWith('r_'), fmt = v => (isPct ? pc(v) : kr(v)), short = v => (isPct ? pc(v, 0) : krShort(v));
+  const label = METRICS.find(m => m[0] === key)[1], ok = ys.map(y => y[key]).filter(v => v != null);
+  const T = ticks(Math.min(0, ...ok), Math.max(0, ...ok));
+  const W = Math.max(300, Math.round(cw)), sm = W < 560, H = sm ? 210 : 250, L = sm ? 50 : 64, R = sm ? 16 : 28, Tp = 36, B = 40, lo = T[0], hi = T.at(-1);
+  const Y = v => Tp + (hi - v) / (hi - lo) * (H - Tp - B), n = ys.length, inner = W - L - R - 60;
+  const X = i => (n === 1 ? L + (W - L - R) / 2 : L + 30 + i * inner / (n - 1)), slot = n === 1 ? 140 : inner / (n - 1);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)} per år">`;
+  T.forEach(t => { s += `<line class="${t === 0 ? 'zl' : 'gl'}" x1="${L}" x2="${W - R}" y1="${Y(t)}" y2="${Y(t)}"/><text class="ax" x="${L - 10}" y="${Y(t) + 4}" text-anchor="end">${short(t)}</text>`; });
+  const pts = ys.map((y, i) => [X(i), y[key] == null ? null : Y(y[key])]).filter(p => p[1] != null);
+  if (pts.length > 1) {
+    s += `<path class="area" d="M${pts[0][0]},${Y(0)} ${pts.map(p => `L${p[0]},${p[1]}`).join(' ')} L${pts.at(-1)[0]},${Y(0)}Z"/>`;
+    s += `<path class="line" d="M${pts.map(p => `${p[0]},${p[1]}`).join(' L')}"/>`;
+  }
+  ys.forEach((y, i) => {
+    const v = y[key], cx = X(i), on = i === si, p = ys[i - 1]?.[key];
+    const tip = `${label}: ${fmt(v)}` + (i > 0 && v != null && p ? `\nEndring fra ${ys[i - 1].y}: ${isPct ? dec(v - p, 1) + ' prosentpoeng' : sgn(chg(v, p))}` : '') + '\nKlikk for å velge året';
+    s += `<rect class="hit" x="${cx - slot / 2}" y="${Tp - 24}" width="${slot}" height="${H - Tp - B + 44}" data-i="${i}" data-tip-t="${y.y}" data-tip="${esc(tip)}"/>`;
+    if (v != null) {
+      if (on) s += `<line class="drop" x1="${cx}" x2="${cx}" y1="${Y(v)}" y2="${Y(0)}"/>`;
+      s += `<circle class="pt ${on ? 'on' : ''}" cx="${cx}" cy="${Y(v)}" r="${on ? 7 : 5}" style="pointer-events:none"/>`;
+      s += `<text class="vl" x="${cx}" y="${Y(v) - 15}" text-anchor="middle" style="font-weight:${on ? 600 : 500}">${short(v)}</text>`;
+    }
+    s += `<text class="yr ${on ? 'on' : ''}" x="${cx}" y="${H - 12}" text-anchor="middle">${y.y}</text>`;
+  });
+  return s + '</svg>';
+}
+// Forslag C: minidiagram per nøkkeltall
+function miniSVG(ys, key, si) {
+  const W = 300, H = 52, n = ys.length, gap = 10, vals = ys.map(y => y[key] ?? 0), mx = Math.max(...vals.map(Math.abs), 1);
+  const bw = Math.min(40, (W - gap * (n - 1)) / n), x0 = (W - (n * bw + (n - 1) * gap)) / 2;
+  let s = `<svg viewBox="0 0 ${W} ${H + 18}" aria-hidden="true">`;
+  ys.forEach((y, i) => {
+    const v = y[key], h = v == null ? 0 : Math.max(3, Math.abs(v) / mx * H), x = x0 + i * (bw + gap);
+    s += `<rect class="bar ${v < 0 ? 'neg' : ''} ${i === si ? 'on' : ''}" x="${x}" y="${H - h}" width="${bw}" height="${h}" rx="2" data-i="${i}"/>`;
+    s += `<text class="yr ${i === si ? 'on' : ''}" x="${x + bw / 2}" y="${H + 14}" text-anchor="middle">${y.y}</text>`;
+  });
+  return s + '</svg>';
+}
+const CHART_VARIANTS = [['A', 'Meny til venstre'], ['B', 'Linjegraf'], ['C', 'Alle nøkkeltall']];
 
 const ROWS = [
   ['g', 'Resultatregnskap'], ['Salgsinntekter', 'salg'], ['Sum driftsinntekter', 'rev', 1], ['Lønnskostnad', 'wage'], ['Sum driftskostnader', 'cost'],
@@ -929,7 +970,8 @@ async function company(id) {
       <div class="ins-ctl"><div class="trk" aria-hidden="true"><i></i></div><span class="muted num" style="font-size:13px;min-width:48px;text-align:right" data-cnt></span><button class="rbtn" data-prev aria-label="Forrige fakta">${ic('left')}</button><button class="rbtn" data-next aria-label="Neste fakta">${ic('right')}</button></div></div>
       <div class="ins"><div class="ins-track" tabindex="0" aria-label="Fakta om ${esc(name)}">${F.map((f, i) => `<article class="fact glass"><span class="idx num">${String(i + 1).padStart(2, '0')}/${String(F.length).padStart(2, '0')}</span><div class="k">${STAR}${esc(f.k)}</div><div class="big num ${f.sm ? 'sm' : ''}">${esc(f.big)}</div><p>${f.text}</p></article>`).join('')}</div></div></section>` : ''}
     ${!demo ? `<section class="block" id="regnskap"><div class="block-h"><div><h2 class="h2">Tallene år for år</h2><p>Klikk på et år for å bla tilbake i tid. Trykk på <span class="info" style="display:inline-grid;vertical-align:-3px">i</span> for å se hva en post betyr.</p></div></div>
-      ${ys.length ? `<div class="chart-card glass" style="margin-bottom:20px"><div class="chart-h"><div class="chart-v" id="cv"></div><div class="seg" role="tablist" aria-label="Velg nøkkeltall">${METRICS.map(([k, t]) => `<button role="tab" data-m="${k}" class="${k === metric ? 'on' : ''}" aria-selected="${k === metric}">${t}</button>`).join('')}</div></div><div class="chart" id="chart" tabindex="0" aria-label="Graf. Bruk piltastene for å bytte år."></div>${ys.length === 1 ? '<p class="chart-note">Selskapet har levert ett regnskap så langt. Grafen fylles på år for år.</p>' : ''}</div>
+      ${ys.length ? `<div class="cv-sw" role="group" aria-label="Forslag til graf"><span>Forslag til graf:</span>${CHART_VARIANTS.map(([k, t]) => `<button type="button" class="chip" data-cv="${k}">${k} · ${t}</button>`).join('')}</div>
+        <div class="chart-card glass" id="chartbox" style="margin-bottom:20px"></div>
         <div class="tbl-card glass"><div class="tbl-bar"><span id="unit" class="muted"></span><button class="switch" type="button" role="switch" aria-checked="${cmp}" data-cmp><span class="tr" aria-hidden="true"></span>Sammenlign med året før</button></div><div id="tbl"></div><div class="tbl-foot"><span>Kilde: Regnskapsregisteret${LOCAL || PROXY ? '' : ' (lagret utdrag)'}</span><span class="hide-m">Klikk på et år for å velge det</span><span class="show-m">Bytt år med pilene i menyen øverst</span></div></div>`
         : `<div class="glass card empty">${rs?.mangler ? 'Regnskapet til dette selskapet er ikke med i den publiserte demoen ennå. Den har lagret regnskap for selskapene i topplistene.' : 'Ingen regnskap funnet i Regnskapsregisteret.'}</div>`}
       </section>` : ''}
@@ -955,19 +997,49 @@ async function company(id) {
           <div class="d"><span>${v == null && k === 'div' ? 'Krever to års regnskap' : d ? `${d} <span class="muted">fra ${Pv.y}</span>` : ''}</span>${ys.length > 1 ? `<span class="spark" aria-hidden="true">${vals.map((x, i) => `<i class="${i === si ? 'on' : ''}" style="height:${Math.max(8, Math.abs(x) / mx * 100)}%"></i>`).join('')}</span>` : ''}</div></div>`;
       }).join('');
     }
-    if ($('#chart')) {
-      const isPct = metric.startsWith('r_'), v = L[metric], p = Pv?.[metric];
-      $('#cv').innerHTML = `<strong class="num">${isPct ? pc(v) : kr(v)}</strong><span>${Pv && v != null && p != null ? (isPct ? `<span class="${v - p >= 0 ? 'up' : 'dn'}">${v - p >= 0 ? '▲' : '▼'} ${dec(Math.abs(v - p), 1)} poeng</span>` : arrow(chg(v, p))) + ` <span class="muted">fra ${Pv.y}</span>` : `<span class="muted">${METRICS.find(m => m[0] === metric)[1]} ${L.y}</span>`}</span>`;
-      $('#chart').innerHTML = chartSVG(ys, metric, si, $('#chart').clientWidth);
+    if ($('#chartbox')) {
+      renderChart();
       const t = finTable(ys, si, cmp); $('#tbl').innerHTML = t.html; unit = t.unit; setUnit();
     }
   };
+  // Tre forslag til grafen – velges med knapperaden over (huskes i nettleseren)
+  let cv = 'A';
+  try { cv = localStorage.getItem('klover.chartv') || 'A'; } catch (e) { /* privat modus */ }
+  const valTxt = (k, y) => (k.startsWith('r_') ? pc(y?.[k]) : kr(y?.[k]));
+  const chgTxt = k => {
+    const v = ys[si][k], p = ys[si - 1]?.[k];
+    if (v == null || p == null) return '';
+    if (k.startsWith('r_')) { const d = v - p; return `<span class="${d >= 0 ? 'up' : 'dn'}">${d >= 0 ? '▲' : '▼'} ${dec(Math.abs(d), 1)} pp</span>`; }
+    return arrow(chg(v, p));
+  };
+  const renderChart = () => {
+    const box = $('#chartbox'), L = ys[si], Pv = ys[si - 1], lab = METRICS.find(m => m[0] === metric)[1];
+    $$('[data-cv]').forEach(b => b.classList.toggle('on', b.dataset.cv === cv));
+    box.className = `chart-card glass cv-${cv}`;
+    const note = ys.length === 1 ? '<p class="chart-note">Selskapet har levert ett regnskap så langt. Grafen fylles på år for år.</p>' : '';
+    const tabs = `<div class="seg" role="tablist" aria-label="Velg nøkkeltall">${METRICS.map(([k, t]) => `<button role="tab" data-m="${k}" class="${k === metric ? 'on' : ''}" aria-selected="${k === metric}">${t}</button>`).join('')}</div>`;
+    const head = `<div class="chart-v"><strong class="num">${valTxt(metric, L)}</strong><span>${Pv && chgTxt(metric) ? `${chgTxt(metric)} <span class="muted">fra ${Pv.y}</span>` : `<span class="muted">${lab} ${L.y}</span>`}</span></div>`;
+    const plot = '<div class="chart" id="chart" tabindex="0" aria-label="Graf. Bruk piltastene for å bytte år."></div>';
+    if (cv === 'A') {
+      box.innerHTML = `<div class="cv-menu" role="tablist" aria-label="Velg nøkkeltall">${METRICS.map(([k, t]) => `<button role="tab" data-m="${k}" class="${k === metric ? 'on' : ''}" aria-selected="${k === metric}"><span class="t">${t}</span><span class="c">${chgTxt(k)}</span><span class="v num">${valTxt(k, L)}</span></button>`).join('')}</div>
+        <div class="cv-plot"><div class="cv-head"><b>${lab}</b><span class="muted">${ys[0].y}${ys.length > 1 ? `–${ys.at(-1).y}` : ''}</span></div>${plot}${note}</div>`;
+      const mh = $('.cv-menu').offsetHeight, wide = innerWidth > 900;
+      $('#chart').innerHTML = chartSVG(ys, metric, si, $('#chart').clientWidth, wide ? Math.max(230, mh - 64) : 0);
+    } else if (cv === 'B') {
+      box.innerHTML = `<div class="chart-h">${head}${tabs}</div>${plot}${note}`;
+      $('#chart').innerHTML = lineSVG(ys, metric, si, $('#chart').clientWidth);
+    } else {
+      box.innerHTML = `<div class="cv-grid">${METRICS.map(([k, t]) => `<div class="mini"><div class="t">${t}</div><div class="v num">${valTxt(k, L)}</div><div class="c">${chgTxt(k) || `<span class="muted">${L.y}</span>`}</div>${miniSVG(ys, k, si)}</div>`).join('')}</div>${note}`;
+    }
+  };
   let unit = 1;
-  const setUnit = () => { const el = $('#unit'); if (el) el.innerHTML = cmp ? 'Endring fra året før: <span class="up">▲ økning</span> · <span class="dn">▼ nedgang</span>' : (unit === 1000 ? 'Beløp i 1000 kr' : 'Beløp i kroner'); };
+  const setUnit = () => { const el = $('#unit'); if (el) el.innerHTML = cmp ? 'Endring fra året før: <span class="up">▲ økning</span> · <span class="dn">▼ nedgang</span>' : 'Slå på for å se endringen fra året før'; };
   const setYear = i => { si = Math.max(0, Math.min(ys.length - 1, i)); tipHide(); draw(); };
   onV('click', e => {
     const y = e.target.closest('[data-y]'); if (y) setYear(si + +y.dataset.y);
-    const b = e.target.closest('#chart [data-i]'); if (b) setYear(+b.dataset.i);
+    const b = e.target.closest('#chartbox [data-i]'); if (b) setYear(+b.dataset.i);
+    const cvb = e.target.closest('[data-cv]');
+    if (cvb) { cv = cvb.dataset.cv; try { localStorage.setItem('klover.chartv', cv); } catch (er) { /* */ } tipHide(); renderChart(); }
     const th = e.target.closest('th[data-yi]'); if (th) setYear(+th.dataset.yi);
     const m = e.target.closest('[data-m]'); if (m) { metric = m.dataset.m; $$('[data-m]').forEach(x => { x.classList.toggle('on', x === m); x.setAttribute('aria-selected', x === m); }); draw(); }
     const go = e.target.closest('[data-go]'); if (go) $('#' + go.dataset.go)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1059,7 +1131,7 @@ async function person(id) {
   constellation($('.ph .field'));
   const nodeHtml = (n, parent) => {
     const e = { navn: n.name }, k = keyOf(n), has = n.kids.length, isOpen = open.has(k), tot = agg.get(n.id).total;
-    return `<div class="node"><div class="nrow glass ${selected === k ? 'sel' : ''}" data-key="${k}" role="treeitem" tabindex="0" aria-expanded="${has ? isOpen : ''}" aria-selected="${selected === k}">
+    return `<div class="node"><div class="nrow glass ${selected === k ? 'picked' : ''}" data-key="${k}" role="treeitem" tabindex="0" aria-expanded="${has ? isOpen : ''}" aria-selected="${selected === k}">
       <span class="tg ${has ? (isOpen ? 'open' : '') : 'leaf'}">${ic('right')}</span><span class="av">${esc(ini(e.navn))}</span>
       <div class="nm"><b>${esc(e.navn)}</b><span>${esc(parent)} eier ${pcp(n.andel)}${has ? ` · eier selv ${n.kids.length} selskap${n.kids.length > 1 ? 'er' : ''}` : ''}</span></div>
       <div class="eff"><b class="num">${pcp(n.eff)}</b><span>${esc(fn)} ${n.chain.length > 1 ? 'indirekte' : 'direkte'}${Math.abs(tot - n.eff) > .01 ? ` · totalt ${pcp(tot)}` : ''}</span></div>
@@ -1068,9 +1140,10 @@ async function person(id) {
   };
   const pathBox = () => {
     const n = selected && find(tree, selected);
-    if (!n) return `<div class="pathbox glass">${STAR.replace('<svg', '<svg style="width:12px;height:12px;fill:var(--ac)"')}<span class="muted">Trykk på et selskap for å se regnestykket bak eierandelen.</span></div>`;
+    if (!n) return `<div class="pathbox glass">${STAR.replace('<svg', '<svg style="width:12px;height:12px;fill:var(--ac)"')}<span class="muted">Trykk på et selskap for å se hvor mye ${esc(fn)} eier av det.</span></div>`;
     const steps = n.chain.map(e => `<span class="ar">→ ${pcp(e.andel)} →</span><span class="st">${esc(e.name)}</span>`).join('');
-    return `<div class="pathbox glass" aria-live="polite"><span class="st">${esc(p.navn)}</span>${steps}<span class="res num">= ${pcp(n.eff)}</span>${n.chain.length > 1 ? `<span class="fm">${n.chain.map(e => pcp(e.andel)).join(' × ')} = ${pcp(n.eff)}</span>` : ''}</div>`;
+    const via = n.chain.slice(0, -1).map(e => esc(e.name)).join(' og ');
+    return `<div class="pathbox glass" aria-live="polite"><span class="st">${esc(p.navn)}</span>${steps}<span class="res num">= ${pcp(n.eff)}</span><span class="fm"><b>${esc(p.navn)}</b> eier ${pcp(n.eff)} av ${esc(n.name)}${via ? `, gjennom ${via}` : ''}.</span></div>`;
   };
   const listHtml = () => `<div class="glass card"><table class="mini"><tbody>${[...agg.values()].sort((a, b) => b.total - a.total).map(a => {
     const e = { navn: a.paths[0].name }, kinds = new Set(a.paths.map(x => (x.chain.length > 1 ? 'indirekte' : 'direkte')));
