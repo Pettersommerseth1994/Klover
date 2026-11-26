@@ -267,6 +267,8 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .up{color:var(--up)}.dn{color:var(--down)}
 .info{position:relative;width:16px;height:16px;border-radius:50%;border:1px solid #c8c8c8;color:var(--mut);font-size:10px;font-weight:600;display:inline-grid;place-items:center;flex:none;line-height:1;transition:border-color .2s,color .2s,background .2s;font-family:Georgia,serif;font-style:italic}
 .info:hover,.info:focus-visible,.info[aria-expanded=true]{border-color:var(--ac);color:var(--ink);background:var(--peach)}
+/* «i» midt i løpende tekst – sentrert på tekstlinjen */
+.info-inline{display:inline-grid;vertical-align:middle;position:relative;top:-2px;margin:0 2px}
 
 /* Innsikt */
 .ins{position:relative}
@@ -309,11 +311,15 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .chart .hit{fill:transparent;cursor:pointer}
 .chart-note{font-size:13px;color:var(--mut);margin-top:6px}
 
-/* Forslag til graf – midlertidig knapperad */
-.cv-sw{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;margin-bottom:10px;border:1.5px dashed rgba(0,0,0,.18);border-radius:4px;font-size:12px;color:var(--mut)}
-.cv-sw>span{margin-right:4px}
-.cv-sw .chip{min-height:30px;padding:4px 12px;font-size:12px}
-.cv-sw .chip.on{background:var(--ac);border-color:var(--ac);color:var(--ink)}
+/* Graf på mobil: tone ut kantene + piler */
+.cv-mwrap{position:relative}
+.cv-mwrap .cv-menu{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 36px,#000 calc(100% - 64px),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 36px,#000 calc(100% - 64px),transparent 100%)}
+.cv-mwrap.at-start .cv-menu{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 64px),transparent 100%);mask-image:linear-gradient(to right,#000 calc(100% - 64px),transparent 100%)}
+.cv-mwrap.at-end .cv-menu{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 36px);mask-image:linear-gradient(to right,transparent 0,#000 36px)}
+.cv-mwrap.at-start.at-end .cv-menu{-webkit-mask-image:none;mask-image:none}
+.cv-arr{position:absolute;top:50%;z-index:2;width:36px;height:36px;margin-top:-18px;border-radius:50%;background:#fff;border:1px solid var(--ln);box-shadow:0 4px 14px rgba(10,20,30,.14);display:grid;place-items:center;transition:opacity .2s}
+.cv-arr.l{left:6px}.cv-arr.r{right:6px}
+.cv-mwrap.at-start .cv-arr.l,.cv-mwrap.at-end .cv-arr.r{opacity:0;pointer-events:none}
 /* A: meny til venstre, graf til høyre */
 .chart-card.cv-A{display:grid;grid-template-columns:250px minmax(0,1fr);padding:0;overflow:hidden}
 .cv-menu{display:flex;flex-direction:column;gap:2px;padding:8px;border-right:1px solid rgba(0,0,0,.06);background:rgba(255,255,255,.25)}
@@ -327,26 +333,6 @@ a.chip:hover,button.chip:hover{border-color:var(--ink)}
 .cv-plot{padding:16px 20px 10px;min-width:0}
 .cv-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
 .cv-head b{font-weight:600;font-size:15px}
-/* B: linjegraf */
-.chart .line{fill:none;stroke:var(--ac);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
-.chart .area{fill:rgba(239,113,64,.08)}
-.chart .pt{fill:var(--ink);stroke:var(--bg);stroke-width:2}
-.chart .pt.on{fill:var(--ac);stroke:#fff;stroke-width:3}
-.chart .drop{stroke:var(--ac);stroke-width:1;stroke-dasharray:3 3}
-/* C: alle nøkkeltall som små kort */
-.chart-card.cv-C{padding:14px}
-.cv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.mini{background:rgba(255,255,255,.55);border:1px solid rgba(0,0,0,.05);border-radius:4px;padding:12px 14px 6px}
-.mini .t{font-size:12px;color:var(--mut)}
-.mini .v{font-size:20px;font-weight:500;letter-spacing:-.02em;margin-top:2px}
-.mini .c{font-size:12px;font-weight:500;min-height:18px}
-.mini svg{width:100%;max-width:300px;height:auto;display:block;margin-top:6px}
-.mini .bar{fill:#dcdcd8;cursor:pointer;transition:fill .2s}
-.mini .bar:hover{fill:#bdbdb8}
-.mini .bar.on{fill:var(--ac)}
-.mini .bar.neg{fill:#9a9ea4}
-.mini .yr{font-size:11px;fill:var(--mut);font-family:'Inter Tight',sans-serif}
-.mini .yr.on{fill:var(--ink);font-weight:600}
 
 /* Regnskapstabell */
 .tbl-card{padding:0;overflow:hidden}
@@ -667,15 +653,14 @@ table.own-t tbody[hidden]{display:none}
   .tbl-bar{font-size:12px}
   .show-m{display:inline}.hide-m{display:none}
   .eb{border-radius:18px;font-size:13px;line-height:1.35}
-  /* Grafforslag på mobil */
-  .chart-card.cv-A{grid-template-columns:1fr}
-  .cv-menu{flex-direction:row;overflow-x:auto;scrollbar-width:none;border-right:0;border-bottom:1px solid rgba(0,0,0,.06)}
+  /* Graf A på mobil: meny over grafen */
+  .chart-card.cv-A{grid-template-columns:minmax(0,1fr)}
+  .cv-mwrap{min-width:0}
+  .cv-menu{flex-direction:row;overflow-x:auto;scrollbar-width:none;border-right:0;border-bottom:1px solid rgba(0,0,0,.06);scroll-behavior:smooth}
   .cv-menu::-webkit-scrollbar{display:none}
   .cv-menu button{min-width:150px;flex:none}
+  .cv-mwrap .cv-menu{padding-right:44px}
   .cv-plot{padding:12px 12px 8px}
-  .cv-grid{grid-template-columns:1fr 1fr;gap:8px}
-  .mini{padding:10px 10px 4px}
-  .mini .v{font-size:16px}
   .co-page .fact{flex-basis:82%}
   .co-page .fact .big{font-size:26px}
   .org-col{border-left:0;border-top:1px solid rgba(0,0,0,.06)}
