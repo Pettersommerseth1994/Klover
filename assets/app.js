@@ -84,7 +84,7 @@ function mountCanvas(cv, draw) {
   FIELDS.push(f);
   return f;
 }
-function starField(cv, { mode = 'follow', sp = 12 } = {}) {
+function starField(cv, { mode = 'follow', sp = 12, mouse = true } = {}) {
   const f = mountCanvas(cv, t => {
     const { cx, W, H } = f; cx.clearRect(0, 0, W, H);
     if (mode === 'follow') {
@@ -97,7 +97,7 @@ function starField(cv, { mode = 'follow', sp = 12 } = {}) {
       for (let y = sp / 2; y < H; y += sp) for (let x = sp / 2; x < W; x += sp) {
         const h = hs(x, y); let r = .45 + (Math.sin(t * 1.3 + y * .045 + x * .008) + 1) * .6, col = G;
         if (h > .985 && Math.sin(t * 3 + h * 90) > .85) { r = 1.8; col = O; }
-        if (f.mx != null) { const k = Math.exp(-((x - f.mx) ** 2 + (y - f.my) ** 2) / (2 * 70 * 70)); r += k * 1.4; if (k > .4) col = O; }
+        if (mouse && f.mx != null) { const k = Math.exp(-((x - f.mx) ** 2 + (y - f.my) ** 2) / (2 * 70 * 70)); r += k * 1.4; if (k > .4) col = O; }
         star(cx, x, y, r, col);
       }
     }
@@ -446,7 +446,7 @@ async function home() {
       <div class="rv"><span>03</span><h3>Sammenlign</h3><p>Topplistene viser hvem som tjener mest, tapte mest og tok ut mest utbytte – i hele landet eller i din kommune.</p></div>
     </div>
   </div></section>`;
-  starField($('.hero .field'), { mode: 'follow', sp: 12 });
+  starField($('.hero .field'), { mode: 'breathe', sp: 12, mouse: false });
   constellation($('.feat-vis canvas'));
   const s = makeSearch({ mode: 'hero', placeholder: 'Søk på selskap, org.nr eller person …' });
   $('#hs').append(s.el);
