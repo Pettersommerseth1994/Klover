@@ -858,6 +858,14 @@ async function toplists(q) {
 
 // ---------- Selskap ----------
 const g = (o, ...p) => { for (const k of p) { if (o == null) return null; o = o[k]; } return typeof o === 'number' ? o : null; };
+const MONEY_KEYS = ['salg', 'rev', 'wage', 'cost', 'op', 'finInn', 'finKost', 'pre', 'tax', 'net', 'anlegg', 'varer', 'fordr', 'bank', 'omlop', 'ass', 'innskutt', 'opptjent', 'eq', 'lang', 'kort', 'gjeld'];
+// «Regnskapet føres i USD …»-merknaden når tallene er regnet om
+const fxNote = ys => {
+  const c = ys.find(x => x.fx);
+  if (!c) return '';
+  const last = ys.filter(x => x.fx).at(-1), unknown = ys.some(x => x.cur !== 'NOK' && !x.fx);
+  return `Regnskapet føres i ${esc(c.cur)}. Tallene er regnet om til kroner med Norges Banks årssnitt for hvert år (1 ${esc(last.cur)} = ${dec(last.fx, 2)} kr i ${last.y}). Endringene fra år til år påvirkes derfor også av kursen.${unknown ? ' Noen år mangler kurs og vises i originalvaluta.' : ''}`;
+};
 function parseYears(rs) {
   const ys = (Array.isArray(rs) ? rs : []).filter(r => r.regnskapstype === 'SELSKAP').map(r => {
     const R = r.resultatregnskapResultat || {}, A = r.eiendeler || {}, B = r.egenkapitalGjeld || {};
@@ -873,8 +881,16 @@ function parseYears(rs) {
       innskutt: g(B, 'egenkapital', 'innskuttEgenkapital', 'sumInnskuttEgenkaptial'), opptjent: g(B, 'egenkapital', 'opptjentEgenkapital', 'sumOpptjentEgenkapital'),
       eq: g(B, 'egenkapital', 'sumEgenkapital'), lang: g(B, 'gjeldOversikt', 'langsiktigGjeld', 'sumLangsiktigGjeld'),
       kort: g(B, 'gjeldOversikt', 'kortsiktigGjeld', 'sumKortsiktigGjeld'), gjeld: g(B, 'gjeldOversikt', 'sumGjeld'),
+      cur: r.valuta || 'NOK',
     };
   }).sort((a, b) => a.y - b.y);
+  // Regnskap i annen valuta (Equinor, Aker BP, Mowi ...) regnes om til kroner med Norges Banks årssnitt, som i topplistene
+  for (const c of ys) {
+    const r = c.cur !== 'NOK' && TMETA?.valuta?.[c.cur];
+    if (!r) continue;
+    c.fx = r[c.y] ?? r[Object.keys(r).sort().at(-1)];
+    for (const k of MONEY_KEYS) if (c[k] != null) c[k] *= c.fx;
+  }
   ys.forEach((c, i) => {
     const p = ys[i - 1];
     if (p && c.net != null && c.opptjent != null && p.opptjent != null) c.div = Math.max(0, c.net - (c.opptjent - p.opptjent));
@@ -1132,7 +1148,7 @@ async function company(id) {
   const demo = id.startsWith('d-');
   let ent = null, rs = null, ro = null;
   if (!demo) {
-    [ent, rs, ro] = await Promise.all([api(`enhetsregisteret/api/enheter/${id}`), api(`regnskapsregisteret/regnskap/${id}`), api(`enhetsregisteret/api/enheter/${id}/roller`)]);
+    [ent, rs, ro] = await Promise.all([api(`enhetsregisteret/api/enheter/${id}`), api(`regnskapsregisteret/regnskap/${id}`), api(`enhetsregisteret/api/enheter/${id}/roller`), loadMeta()]);
     if (!ent?.navn) { V.innerHTML = `<section class="ph"><div class="wrap"><div class="lab nl">Selskap</div><h1 class="h2">Fant ikke selskapet</h1><p class="lead" style="margin-top:16px">Vi fant ingen enhet med organisasjonsnummer ${esc(fmtOrg(id))} i Enhetsregisteret.</p><button class="btn" style="margin-top:24px" data-cmdk-open>${ic('search')} Søk på nytt</button></div></section>`; $('[data-cmdk-open]').onclick = openPalette; return; }
   } else if (!E(id)) { location.hash = '#/'; return; }
   const name = demo ? E(id).navn : nice(ent.navn);
@@ -1163,13 +1179,13 @@ async function company(id) {
     <nav class="subnav glass-hi" aria-label="Seksjoner"><button class="sn-cur" type="button" data-sncur aria-expanded="false" aria-controls="sn-tabs"><span id="sn-cur-t">${tabs[0][1]}</span>${ic('down')}</button>
       <div class="tabs" id="sn-tabs" data-thumb>${tabs.map(([k, t, icn], i) => `<a href="javascript:void 0" data-go="${k}" class="${i ? '' : 'on'}"><span class="sn-i">${ic(icn)}</span><span class="sn-t">${t}</span></a>`).join('')}</div>
       ${ys.length ? `<div class="yearnav" role="group" aria-label="Velg regnskapsår"><span class="lbl">Regnskapsår</span><button class="rbtn" data-y="-1" aria-label="Forrige år">${ic('left')}</button><b class="num" aria-live="polite" id="yr"></b><button class="rbtn" data-y="1" aria-label="Neste år">${ic('right')}</button></div>` : ''}</nav>
-    ${!demo ? `<section class="block" id="oversikt"><div class="block-h"><div><h2 class="h2" id="ov-h"></h2><p id="ov-p"></p></div></div><div class="kgrid" id="kpis"></div></section>` : ''}
+    ${!demo ? `<section class="block" id="oversikt"><div class="block-h"><div><h2 class="h2" id="ov-h"></h2><p id="ov-p"></p></div></div><div class="kgrid" id="kpis"></div>${fxNote(ys) ? `<p class="note fx-note">${ic('info')} <span>${fxNote(ys)}</span></p>` : ''}</section>` : ''}
     ${F.length ? `<section class="block" id="innsikt"><div class="block-h"><div><h2 class="h2">Kjappe fakta</h2><p>Bla gjennom det regnskapet faktisk forteller om ${esc(name)}.</p></div>
       <div class="ins-ctl"><div class="trk" aria-hidden="true"><i></i></div><span class="muted num" style="font-size:13px;min-width:48px;text-align:right" data-cnt></span><button class="rbtn" data-prev aria-label="Forrige fakta">${ic('left')}</button><button class="rbtn" data-next aria-label="Neste fakta">${ic('right')}</button></div></div>
       <div class="ins"><div class="ins-track" tabindex="0" aria-label="Fakta om ${esc(name)}">${F.map((f, i) => `<article class="fact glass"><span class="idx num">${String(i + 1).padStart(2, '0')}/${String(F.length).padStart(2, '0')}</span><div class="k">${STAR}${esc(f.k)}</div><div class="big num ${f.sm ? 'sm' : ''}">${esc(f.big)}</div><p>${f.text}</p></article>`).join('')}</div></div></section>` : ''}
     ${!demo ? `<section class="block" id="regnskap"><div class="block-h"><div><h2 class="h2">Tallene år for år</h2><p>Klikk på et år for å bla tilbake i tid. Trykk på <span class="info info-inline">i</span> for å se hva en post betyr.</p></div></div>
       ${ys.length ? `        <div class="chart-card glass" id="chartbox" style="margin-bottom:20px"></div>
-        <div class="tbl-card glass"><div class="tbl-bar"><span id="unit" class="muted"></span><button class="switch" type="button" role="switch" aria-checked="${cmp}" data-cmp><span class="tr" aria-hidden="true"></span>Sammenlign med året før</button></div><div id="tbl"></div><div class="tbl-foot"><span>Kilde: Regnskapsregisteret${LOCAL || PROXY ? '' : ' (lagret utdrag)'}</span><span class="hide-m">Klikk på et år for å velge det</span><span class="show-m">Bytt år med pilene i menyen øverst</span></div></div>`
+        <div class="tbl-card glass"><div class="tbl-bar"><span id="unit" class="muted"></span><button class="switch" type="button" role="switch" aria-checked="${cmp}" data-cmp><span class="tr" aria-hidden="true"></span>Sammenlign med året før</button></div><div id="tbl"></div><div class="tbl-foot"><span>Kilde: Regnskapsregisteret${LOCAL || PROXY ? '' : ' (lagret utdrag)'}${ys.some(x => x.fx) ? ` · omregnet fra ${esc(ys.find(x => x.fx).cur)} til kroner` : ''}</span><span class="hide-m">Klikk på et år for å velge det</span><span class="show-m">Bytt år med pilene i menyen øverst</span></div></div>`
         : `<div class="glass card empty">${rs?.mangler ? 'Regnskapet til dette selskapet er ikke med i den publiserte demoen ennå. Den har lagret regnskap for selskapene i topplistene.' : 'Ingen regnskap funnet i Regnskapsregisteret.'}</div>`}
       </section>` : ''}
     <section class="block" id="eiere">${ownershipBlock(own, name)}</section>

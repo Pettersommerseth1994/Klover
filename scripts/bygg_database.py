@@ -270,7 +270,9 @@ def main():
         if e.get("knr") and e.get("kommune") and e.get("fylke"):
             kom[e["knr"]] = (e["kommune"], e["fylke"])
     per_year = {y: sum(1 for r in aar_rows if r[1] == int(y)) for y in YEARS}
+    # Valutakursene brukes også på selskapssiden, så regnskap i USD og EUR vises i kroner der også
     json.dump({"generert": time.strftime("%Y-%m-%d"), "selskaper": len(ents), "per_år": per_year,
+               "valuta": {k: {y: round(r, 6) for y, r in v.items()} for k, v in fx.items()},
                "kommuner": sorted([[k, n, f] for k, (n, f) in kom.items()], key=lambda x: x[1])},
               open(META, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print(f"-> {META} ({len(kom)} kommuner). Ferdig på {time.time() - t0:.0f} s.")
