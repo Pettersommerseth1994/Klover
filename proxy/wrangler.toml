@@ -1,3 +1,10 @@
 name = "klover-proxy"
 main = "worker.js"
 compatibility_date = "2026-11-01"
+
+# Alle regnskap og topplistene (bygges med scripts/bygg_database.py)
+[[d1_databases]]
+binding = "DB"
+database_name = "klover"
+database_id = "15c016f8-9baa-4d30-8d40-2c45944b0895"
+remote = true  # «wrangler dev» bruker den ekte databasen

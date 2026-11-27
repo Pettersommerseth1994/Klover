@@ -5,3 +5,9 @@ __pycache__/
 # Aksjonærregisteret inneholder personopplysninger – skal aldri i det offentlige repoet
 data/aksjonaerregister/
 *.csv
+
+# Alle regnskap (stort, bygges lokalt med scripts/hent_alle_regnskap.py)
+data/regnskap_alle/
+
+# Wrangler (lokal utvikling av Workeren)
+.wrangler/

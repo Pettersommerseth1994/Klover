@@ -552,6 +552,7 @@ a.role:hover{transform:translateY(-3px)}
 .tl-page .fpanel{padding:12px;gap:10px;margin-bottom:10px}
 .tl-page .active-f{margin-bottom:10px;min-height:0}
 .tl-page .rows{gap:0;overflow:hidden}
+.rows.loading,.idea-b.loading{opacity:.5;transition:opacity .2s .15s}.rows{transition:opacity .15s}
 .tl-page .rrow{grid-template-columns:36px 1fr minmax(130px,200px);gap:14px;padding:9px 16px;border-top:1px solid rgba(0,0,0,.06)}
 .tl-page .rrow:first-child{border-top:0}
 .tl-page .rrow:hover{padding-left:22px;background:rgba(255,255,255,.5)}
