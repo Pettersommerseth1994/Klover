@@ -1362,8 +1362,11 @@ function fullGraph(tree, agg, pname, max = 14) {
   return { cols, nodes: ns, links: [...links.values()], keep };
 }
 // Flytdiagrammet: noder i kolonner (på mobil i rader) og streker tegnet i SVG når boksene har fått plass
+// Store kart (klassen «lv»): ett ledd per rad, med en etikett som sier hvor langt fra personen leddet er
+const lvLab = i => (i === 1 ? 'Eier direkte' : i === 2 ? 'Gjennom ett selskap' : `Gjennom ${i - 1} selskaper`);
 function flowBox(G, cls = '') {
-  const colsHtml = Array.from({ length: G.cols }, (_, i) => `<div class="fcol">${G.nodes.filter(n => n.col === i).map(n => `<button type="button" class="fn${n.pe ? ' pe' : ''}" data-n="${esc(n.id)}" data-pi="${[...n.pi].join(',')}"${n.br ? ` style="--br:${n.br}"` : ''}>
+  const lv = /\blv\b/.test(cls);
+  const colsHtml = Array.from({ length: G.cols }, (_, i) => `<div class="fcol${lv && G.nodes.filter(n => n.col === i).length > 6 ? ' many' : ''}">${lv && i ? `<span class="fl-lab">${lvLab(i)}</span>` : ''}${G.nodes.filter(n => n.col === i).map(n => `<button type="button" class="fn${n.pe ? ' pe' : ''}" data-n="${esc(n.id)}" data-pi="${[...n.pi].join(',')}"${n.br ? ` style="--br:${n.br}"` : ''}>
       <span class="av${n.pe ? ' pe' : ''}">${esc(ini(n.name))}</span><span class="fn-t"><span class="fn-n">${esc(n.name)}</span>${n.sub ? `<span class="fn-s">${n.sub}</span>` : ''}</span></button>`).join('')}</div>`).join('');
   const L = G.links.map(({ key, f, t, w, c, lb, pi, tip }) => ({ key, f, t, w, c, lb, pi, tip }));
   return `<div class="flow ${cls}" style="--cols:${G.cols}" data-links='${esc(JSON.stringify(L))}'><svg class="flow-l"></svg>${colsHtml}<div class="ftip" hidden></div></div>`;
@@ -1400,7 +1403,8 @@ function drawFlow(fl) {
     const pi = l.pi.join(',');
     s += `<g class="lk" data-pi="${pi}" style="--c:${l.c}"><path class="lk-b" d="${d}" stroke-width="${w.toFixed(1)}"/><path class="lk-h" d="${d}" stroke-width="${Math.max(18, w + 10).toFixed(1)}" data-ftip="${esc(l.tip)}" data-pi="${pi}"/></g>`;
     // Etiketten står 70 % ut på streken, nær selskapet den peker på – da kolliderer de sjeldnere der strekene krysser
-    const t = .7, u = 1 - t, bz = (p0, p1, p2, p3) => u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+    // I store kart (ett ledd per rad) står etiketten midt på streken, så den ikke treffer ledd-etiketten over kortene
+    const t = fl.classList.contains('lv') && vert ? .5 : .7, u = 1 - t, bz = (p0, p1, p2, p3) => u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
     const lw = l.lb.length * 7 + 16, lx = bz(x1, cp[0], cp[2], x2), ly = bz(y1, cp[1], cp[3], y2);
     labs.push({ x: lx, y: ly, w: lw, pi, c: l.c, lb: l.lb });
   });
@@ -1432,9 +1436,11 @@ function ovMap(tree, agg, pname, tid) {
       ${T.paths.length > 1 ? `<div class="mp sum"><div><span>Til sammen</span><span class="num">${T.paths.map(p => pcp(p.eff)).join(' + ')} = <b>${pcp(T.total)}</b></span></div></div>` : ''}</div>
       <a class="btn ghost sm" href="#/selskap/${esc(T.id)}">Åpne selskapet ${ic('arrow')}</a></aside>` : '';
   const more = agg.size > G.nodes.length - 1 ? `<p class="ov-n">Viser de ${G.nodes.length - 1} største av ${agg.size} selskaper.</p>` : '';
+  // Mange ledd eller selskaper: kolonnene blir for smale, så kartet tegnes med ett ledd per rad
+  const lv = G.cols > 4 || G.nodes.length > 9;
   return `<div class="ov glass ov-m" data-selpi="${pis.join(',')}">
     <div class="ov-h"><div><span class="ov-k">Eierkart</span><h3>Alt ${esc(fn)} eier – trykk på et selskap</h3></div></div>
-    <div class="map-grid">${flowBox(G, 'map')}${card}</div>
+    <div class="map-grid${lv ? ' lv' : ''}">${flowBox(G, lv ? 'map lv' : 'map')}${card}</div>
     <p class="ov-n">Tallet på hver strek er eierandelen i det leddet. Jo tykkere strek, jo mer av selskapet havner hos ${esc(fn)}.</p>${more}</div>`;
 }
 

@@ -508,8 +508,21 @@ a.role:hover{transform:translateY(-3px)}
 .mp.sum{font-weight:600;border-bottom:0}.mp.sum .num b{color:var(--mut);font-size:16px}
 /* Eiertre / Samlet oversikt + Utvid alle, rett over listen de styrer */
 .tv-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+/* Store eierkart (mange ledd eller selskaper): ett ledd per rad med lesbare kort, og infokortet følger med når man scroller */
+.flow.lv{display:flex;flex-direction:column;align-items:stretch;gap:64px;padding:26px 0 6px}
+/* Hvert ledd holdes på én linje (kortene krymper), ellers krysser strekene kortene. Bare rader med over seks selskaper brytes. */
+.flow.lv .fcol{flex-direction:row;flex-wrap:nowrap;justify-content:center !important;align-items:stretch !important;gap:10px}
+.flow.lv .fcol.many{flex-wrap:wrap}
+.flow.lv .fn{flex:0 1 210px;min-width:0;padding:9px 12px 9px 10px}
+.flow.lv .fcol.many .fn{flex-basis:150px}
+.flow.lv .fn:not(.pe) .av{display:none}
+.flow.lv .fn.pe{flex:0 0 auto}
+.fl-lab{position:absolute;left:0;top:-17px;font-size:11px;font-weight:500;line-height:1;color:var(--mut);letter-spacing:.01em;white-space:nowrap;pointer-events:none}
+.map-grid.lv{align-items:start}
+.map-grid.lv .map-card{position:sticky;top:96px}
 @media(max-width:900px){
   .map-grid{grid-template-columns:1fr}
+  .map-grid.lv .map-card{position:static}
 }
 @media(max-width:560px){
   .ov{padding:18px 14px}
@@ -518,6 +531,14 @@ a.role:hover{transform:translateY(-3px)}
   .fcol{flex-direction:row;flex-wrap:wrap;justify-content:center !important;align-items:stretch !important;gap:10px}
   .fcol .fn{flex:1 1 0;min-width:0;max-width:260px;padding:9px 10px 9px 8px;gap:8px;font-size:12px}
   .fcol .fn .av{display:none}
+  .flow.lv{gap:56px;padding-top:22px}
+  .flow.lv .fcol{flex-wrap:wrap}
+  .flow.lv .fn,.flow.lv .fcol.many .fn{flex:1 1 calc(50% - 5px);min-width:0;max-width:calc(50% - 5px)}
+  .flow.lv .fcol .fn:only-of-type{max-width:260px}
+  .flow.lv .flow-l .lb{opacity:0}
+  .flow.lv .flow-l .lb.hl{opacity:1}
+  .flow.lv .fn.pe{flex:0 1 auto}
+  .fl-lab{top:-16px;font-size:10.5px}
 }
 .tree .kids{margin-left:26px;padding-left:22px;border-left:1px solid var(--ln)}
 .tree .node{position:relative}
