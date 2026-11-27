@@ -810,3 +810,5 @@ table.own-t tbody[hidden]{display:none}
   *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
   .rv{opacity:1;transform:none}.lab:after{transform:none}.wi{transform:none}
 }
+/* Personvernerklæring */
+.pv{max-width:720px}.pv-s{padding:22px 0;border-top:1px solid var(--ln)}.pv-s:first-child{border-top:0;padding-top:0}.pv-s h2{font-size:20px;font-weight:600;letter-spacing:-.02em;margin:0 0 10px}.pv-s p,.pv-s li{font-size:15.5px;line-height:1.6;color:#333;margin:0 0 10px}.pv-s ul{margin:0;padding-left:20px}

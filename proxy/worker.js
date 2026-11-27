@@ -2,6 +2,9 @@
 //   GET /regnskap/{orgnr}  Regnskapsregisteret sender ikke CORS-headere, så nettleseren kan ikke kalle det direkte.
 //                          Svaret caches i ett døgn.
 //   GET /topp?liste=...    Topplister fra D1-databasen «klover» (bygget med scripts/bygg_database.py).
+//   GET /eiere/meta, /eiere/{orgnr}, /eierskap/{id}, /personsok?q=...
+//                          Aksjonærregisteret fra D1-databasen «klover-eiere» (scripts/bygg_eierdatabase.py).
+//                          Bare når databasen er koblet til (binding EIERE); ellers svarer de 404 og siden bruker eksempeldata.
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
 const json = (body, status = 200, cache = 'no-store') =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': cache, ...CORS } });
@@ -84,11 +87,112 @@ async function regnskap(url, org, ctx) {
   return res;
 }
 
+// ---------- Aksjonærregisteret ----------
+// Persondata: bare oppslag på ett selskap eller én person om gangen, bare fra Kløver, og uten postnummer.
+const EIER_ORIGINS = ['https://xn--klver-wua.com', 'https://www.xn--klver-wua.com', 'http://localhost:5173', 'http://127.0.0.1:5173'];
+const eierHeaders = req => {
+  const o = req.headers.get('Origin');
+  return { 'Access-Control-Allow-Origin': EIER_ORIGINS.includes(o) ? o : EIER_ORIGINS[0], 'Access-Control-Allow-Methods': 'GET, OPTIONS', Vary: 'Origin' };
+};
+// «0784 OSLO» -> «OSLO»: stedet er nok til å skille personer med samme navn
+const sted = s => (s || '').replace(/^\d{4}\s+/, '');
+const tidyOwners = rec => ({ ...rec, o: rec.o.map(o => (o[0] === 'p' ? [o[0], o[1], o[2], o[3], sted(o[4]), ...o.slice(5)] : o)) });
+const tidyHold = rec => (rec.i?.[0] === 'p' ? { ...rec, i: [rec.i[0], rec.i[1], rec.i[2], sted(rec.i[3])] } : rec);
+const normTok = s => String(s || '').toLowerCase().replace(/[^a-zæøåäöü0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+
+// Henter poster for flere nøkler i én spørring (D1 tåler maks 100 parametre)
+async function many(env, table, col, ids) {
+  const out = {};
+  for (let i = 0; i < ids.length; i += 90) {
+    const part = ids.slice(i, i + 90);
+    const { results } = await env.EIERE.prepare(`SELECT ${col} AS k, d FROM ${table} WHERE ${col} IN (${part.map(() => '?').join(',')})`).bind(...part).all();
+    for (const r of results) out[r.k] = JSON.parse(r.d);
+  }
+  return out;
+}
+
+// Selskapet og eierne oppover i kjeden (holdingselskaper), så siden kan regne ut endelige eiere uten nye oppslag
+async function eierePost(env, org) {
+  const recs = {}, seen = new Set([org]);
+  let level = [org];
+  for (let depth = 0; depth < 7 && level.length && Object.keys(recs).length < 120; depth++) {
+    const got = await many(env, 'eiere', 'org', level);
+    const next = [];
+    for (const [k, rec] of Object.entries(got)) {
+      recs[k] = tidyOwners(rec);
+      for (const o of rec.o) if (o[0] === 'c' && !seen.has(o[1])) { seen.add(o[1]); next.push(o[1]); }
+    }
+    level = next.slice(0, 120 - Object.keys(recs).length);
+  }
+  return recs;
+}
+
+// Eieren og selskapene nedover i kjeden, til eiertreet på personsiden
+async function eierskapPost(env, id) {
+  const recs = {}, seen = new Set([id]);
+  let level = [id];
+  for (let depth = 0; depth < 7 && level.length && Object.keys(recs).length < 200; depth++) {
+    const got = await many(env, 'eierskap', 'id', level);
+    const next = [];
+    for (const [k, rec] of Object.entries(got)) {
+      recs[k] = tidyHold(rec);
+      for (const h of rec.h) if (!seen.has(h[0])) { seen.add(h[0]); next.push(h[0]); }
+    }
+    level = next.slice(0, 200 - Object.keys(recs).length);
+  }
+  return recs;
+}
+
+// Personsøk: slår opp på det lengste ordet (minst tre tegn), og sjekker resten av ordene her
+async function personsok(env, q, max) {
+  const toks = normTok(q);
+  const key = toks.reduce((a, b) => (b.length > a.length ? b : a), '');
+  if (key.length < 3) return [];
+  const { results } = await env.EIERE.prepare('SELECT id, navn, yr, sted, n FROM navn WHERE tok >= ? AND tok < ? ORDER BY n DESC LIMIT 2000')
+    .bind(key, key + '\uffff').all();
+  const out = [], seen = new Set();
+  for (const r of results) {
+    if (seen.has(r.id)) continue;
+    const nt = normTok(r.navn);
+    if (toks.every(t => nt.some(x => x.startsWith(t)))) { seen.add(r.id); out.push([r.id, r.navn, r.yr, sted(r.sted), r.n]); if (out.length >= max) break; }
+  }
+  return out;
+}
+
+async function eiere(url, env) {
+  const p = url.pathname;
+  if (p === '/eiere/meta') {
+    const r = await env.EIERE.prepare("SELECT v FROM meta WHERE k = 'meta'").first();
+    return r ? JSON.parse(r.v) : null;
+  }
+  let m = p.match(/^\/eiere\/(\d{9})$/);
+  if (m) return { recs: await eierePost(env, m[1]) };
+  m = p.match(/^\/eierskap\/(\d{9}|[pf][0-9a-f]{10})$/);
+  if (m) return { recs: await eierskapPost(env, m[1]) };
+  if (p === '/personsok') return personsok(env, url.searchParams.get('q') || '', Math.min(Math.max(+url.searchParams.get('n') || 6, 1), 40));
+  return undefined;
+}
+
 export default {
   async fetch(req, env, ctx) {
-    if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
-    if (req.method !== 'GET') return new Response('Ikke funnet', { status: 404, headers: CORS });
     const url = new URL(req.url);
+    const isEier = /^\/(eiere|eierskap|personsok)(\/|$)/.test(url.pathname);
+    if (req.method === 'OPTIONS') return new Response(null, { headers: isEier ? eierHeaders(req) : CORS });
+    if (req.method !== 'GET') return new Response('Ikke funnet', { status: 404, headers: CORS });
+    if (isEier) {
+      const h = eierHeaders(req);
+      if (!env.EIERE) return new Response('Ikke funnet', { status: 404, headers: h });
+      // Svaret caches uten CORS-headere (de avhenger av hvem som spør) og får dem lagt på her
+      const cache = caches.default, key = new Request(url.toString());
+      const hit = await cache.match(key);
+      if (hit) return new Response(hit.body, { status: hit.status, headers: { ...Object.fromEntries(hit.headers), ...h } });
+      let body;
+      try { body = await eiere(url, env); } catch (e) { console.error('eiere', url.pathname, e?.message || e); return json({ feil: 'Databasen svarte ikke' }, 500); }
+      if (body === undefined) return new Response('Ikke funnet', { status: 404, headers: h });
+      const res = new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
+      ctx.waitUntil(cache.put(key, res.clone()));
+      return new Response(res.body, { headers: { ...Object.fromEntries(res.headers), ...h } });
+    }
     const m = url.pathname.match(/^\/regnskap\/(\d{9})$/);
     if (m) return regnskap(url, m[1], ctx);
     if (url.pathname === '/topp') {

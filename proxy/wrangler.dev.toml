@@ -1,0 +1,17 @@
+# Bare for lokal utvikling: «npx wrangler dev -c proxy/wrangler.dev.toml»
+# Som wrangler.toml, men med eierdatabasen lokalt. Persondataene sendes ikke til Cloudflare herfra.
+name = "klover-proxy"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "klover"
+database_id = "15c016f8-9baa-4d30-8d40-2c45944b0895"
+remote = true
+
+# Aksjonærregisteret (bygges med scripts/bygg_eierdatabase.py), bare lokalt
+[[d1_databases]]
+binding = "EIERE"
+database_name = "klover-eiere"
+database_id = "00000000-0000-0000-0000-000000000000"  # lokal kopi i proxy/.wrangler/state, ikke den i Cloudflare

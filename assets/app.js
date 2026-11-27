@@ -269,28 +269,34 @@ function buildTree(id, mult = 1, chain = [], seen = new Set([id])) {
   });
 }
 
-// ---------- Aksjonærregisteret (lokal indeks fra scripts/build_aksjonaerregister.py) ----------
-// Filene finnes bare lokalt (personopplysninger, ignorert av Git). Mangler de, brukes eksempeldataene.
-const REG = { meta: undefined, sh: new Map() };
-const regMeta = async () => (REG.meta === undefined ? (REG.meta = LOCAL ? await getJSON('data/aksjonaerregister/meta.json') : null) : REG.meta);
-const regShard = (dir, name) => {
-  const k = `${dir}/${name}`;
-  if (!REG.sh.has(k)) REG.sh.set(k, getJSON(`data/aksjonaerregister/${dir}/${encodeURIComponent(name)}.json`).then(d => d || {}));
-  return REG.sh.get(k);
-};
+// ---------- Aksjonærregisteret (eierdatabasen bak Workeren, se proxy/worker.js) ----------
+// Svarer ikke Workeren (databasen er ikke koblet til), brukes eksempeldataene.
+// Lokalt: «npx wrangler dev -c proxy/wrangler.dev.toml», med dataene importert som beskrevet i scripts/bygg_eierdatabase.py.
+const REG_API = LOCAL ? 'http://localhost:8787' : PROXY;
+const REG = { meta: undefined, own: new Map(), hold: new Map(), sok: new Map() };
+const regMeta = async () => (REG.meta === undefined ? (REG.meta = await getJSON(`${REG_API}/eiere/meta`)) : REG.meta);
+// Ett oppslag gir også postene oppover (eiere) eller nedover (eierskap) i kjeden; de huskes, så eiertrærne kan bygges uten nye kall
+function regGet(kind, id) {
+  const m = kind === 'eiere' ? REG.own : REG.hold;
+  if (!m.has(id)) {
+    m.set(id, getJSON(`${REG_API}/${kind}/${id}`).then(d => {
+      for (const [k, v] of Object.entries(d?.recs || {})) if (k !== id && !m.has(k)) m.set(k, Promise.resolve(v));
+      return d?.recs?.[id] || null;
+    }));
+  }
+  return m.get(id);
+}
 const isRegKey = k => /^[pf][0-9a-f]{10}$/.test(k);
-const regOwners = async org => (await regShard('eiere', org.slice(0, 4)))[org] || null;
-const regHold = async key => (await regShard('eierskap', /^\d/.test(key) ? 'c' + key.slice(0, 4) : key.slice(0, 4)))[key] || null;
+const regOwners = org => regGet('eiere', org);
+const regHold = key => regGet('eierskap', key);
 const normTok = s => String(s || '').toLowerCase().replace(/[^a-zæøåäöü0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+// Personsøk i Workeren: trenger minst tre tegn i ett av ordene
 async function regSearchPeople(q, max = 6) {
   const toks = normTok(q);
-  if (!toks.length || toks[0].length < 2 || !(await regMeta())) return [];
-  const rows = await regShard('navn', toks[0].slice(0, 2)), out = [];
-  for (const r of Array.isArray(rows) ? rows : []) {
-    const nt = normTok(r[1]);
-    if (toks.every(t => nt.some(x => x.startsWith(t)))) { out.push(r); if (out.length >= max) break; }
-  }
-  return out;
+  if (!toks.some(t => t.length >= 3) || !(await regMeta())) return [];
+  const k = `${toks.join(' ')}|${max}`;
+  if (!REG.sok.has(k)) REG.sok.set(k, getJSON(`${REG_API}/personsok?${new URLSearchParams({ q: toks.join(' '), n: max })}`).then(d => (Array.isArray(d) ? d : [])));
+  return REG.sok.get(k);
 }
 const regPersonItem = r => ({ sec: 'Personer', href: `#/person/${r[0]}`, title: nice(r[1]), kind: 'pe',
   sub: [r[2] && `f. ${r[2]}`, nice(r[3] || ''), `eier i ${r[4]} selskap${r[4] === 1 ? '' : 'er'}`].filter(Boolean).join(' · ') });
@@ -503,6 +509,7 @@ async function route() {
   else if (seg[0] === 'person' && seg[1]) await person(seg[1]);
   else if (seg[0] === 'eiere') await owners();
   else if (seg[0] === 'om') await about();
+  else if (seg[0] === 'personvern') privacy();
   else await home();
   reveal(V); onScroll();
 }
@@ -1484,6 +1491,36 @@ async function owners() {
   $('#os').append(makeSearch({ mode: 'hero', placeholder: 'Søk etter en person eller et selskap' }).el);
 }
 
+// ---------- Personvernerklæring ----------
+// Se dokumenter/interesseavveining.md (lokalt) for vurderingen bak teksten
+const PERSONVERN_EPOST = 'kontakt@kløver.com', PERSONVERN_MAILTO = 'mailto:kontakt@xn--klver-wua.com'; // punycode, så alle e-postprogrammer forstår adressen
+function privacy() {
+  document.title = 'Personvern – Kløver';
+  const sec = (h, body) => `<section class="pv-s"><h2>${h}</h2>${body}</section>`;
+  V.innerHTML = `
+  <section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap"><div class="lab nl">Personvern</div>
+    <h1 class="h1" style="font-size:clamp(40px,5.8vw,88px)">Personvern&shy;erklæring</h1>
+    <p class="lead" style="margin-top:22px">Slik behandler Kløver opplysninger om personer som eier aksjer eller har roller i norske selskaper.</p></div></section>
+  <section class="sec" style="padding-top:30px"><div class="wrap pv">
+    ${sec('Hvem er ansvarlig', `<p>Pesom Holding AS (org.nr 923 729 674) er behandlingsansvarlig for personopplysningene på Kløver. Spørsmål om personvern sender du til <a class="lnk" href="${PERSONVERN_MAILTO}">${esc(PERSONVERN_EPOST)}</a>.</p>`)}
+    ${sec('Hvilke opplysninger vi viser', `<p>For personer som eier aksjer i norske aksjeselskaper viser vi navn, fødselsår, poststed, antall aksjer, eierandel og endringen fra året før. Eierandeler gjennom holdingselskaper regnes ut fra de samme opplysningene.</p>
+      <p>For personer med roller i selskaper, som styremedlem eller daglig leder, viser vi navn, fødselsår og rolle.</p>
+      <p>Vi viser ikke adresse, postnummer, fødselsdato eller fødselsnummer.</p>`)}
+    ${sec('Hvor opplysningene kommer fra', `<p>Eieropplysningene kommer fra aksjonærregisteret hos Skatteetaten, og gjelder eierskap per 31. desember hvert år. Aksjeeierboken er offentlig, og Skatteetaten gjør opplysningene tilgjengelige for alle.</p>
+      <p>Roller, selskapsopplysninger og regnskap kommer fra Brønnøysundregistrene (åpne data, NLOD).</p>`)}
+    ${sec('Hvorfor, og med hvilket grunnlag', `<p>Formålet er å gjøre det enkelt å se hvem som eier og styrer norske selskaper. Det er nyttig for næringslivet, for pressen og for alle som vil forstå hvem som står bak et selskap.</p>
+      <p>Grunnlaget er berettiget interesse etter personvernforordningen artikkel 6 nr. 1 bokstav f. Vi har vurdert at interessen i åpenhet om eierskap veier tyngre enn ulempen for den enkelte, fordi opplysningene allerede er offentlige og vi bare viser det som trengs. Du kan be om å få vurderingen.</p>`)}
+    ${sec('Slik begrenser vi bruken', `<ul><li>Du kan slå opp ett selskap eller én person om gangen. Det går ikke an å laste ned hele registeret fra Kløver.</li><li>Personsøket krever minst tre tegn og viser et begrenset antall treff.</li><li>Persondataene ligger adskilt fra de andre dataene og kan slettes samlet.</li></ul>`)}
+    ${sec('Hvem som behandler opplysningene for oss', `<p>Cloudflare lagrer og leverer eieropplysningene for oss, etter Cloudflares databehandleravtale. Databasen ligger i EU. Når opplysningene leveres til besøkende, kan Cloudflare behandle dem utenfor EØS, og bruker da EU–US Data Privacy Framework.</p>
+      <p>GitHub driver selve nettsiden, men har ikke eieropplysningene. Vi selger ikke opplysninger.</p>`)}
+    ${sec('Hvor lenge', `<p>Vi viser de tre siste årene fra aksjonærregisteret. Når et nytt år blir tilgjengelig, i mai, erstatter det det eldste, og opplysninger som ikke lenger er med, slettes.</p>`)}
+    ${sec('Dine rettigheter', `<p>Du kan be om innsyn i hva vi viser om deg, og om retting hvis noe er feil. Du kan også protestere mot at vi viser deg. Har du særlige grunner, for eksempel beskyttet adresse eller trusler, fjerner vi deg. Vi svarer innen 30 dager.</p>
+      <p>Du kan klage til <a class="lnk" href="https://www.datatilsynet.no/" target="_blank" rel="noopener">Datatilsynet</a> hvis du mener vi behandler opplysningene dine i strid med reglene.</p>`)}
+    ${sec('Informasjonskapsler', `<p>Kløver bruker ikke informasjonskapsler til sporing eller annonser. Nettleseren din husker noen valg lokalt, som fylket du valgte i topplistene.</p>`)}
+  </div></section>`;
+  starField($('.ph .field'), { mode: 'breathe', sp: 11 });
+}
+
 async function about() {
   await Promise.all([regMeta(), loadMeta()]);
   document.title = 'Om dataene – Kløver';
@@ -1495,7 +1532,7 @@ async function about() {
     <div class="rv"><span>01</span><h3>Enhetsregisteret</h3><p>Navn, adresse, bransje, ansatte, stiftelsesdato, navnehistorikk og roller. Hentes direkte og er alltid oppdatert.</p></div>
     <div class="rv"><span>02</span><h3>Regnskapsregisteret</h3><p>Resultat og balanse for de tre siste årene. ${LOCAL || PROXY ? 'Hentes direkte.' : 'Den publiserte siden viser et lagret utdrag for selskapene i topplistene, fordi registeret ikke kan kalles direkte fra nettleseren.'} Utbytte er estimert som årsresultat minus endring i opptjent egenkapital.</p></div>
     <div class="rv"><span>03</span><h3>Topplister</h3><p>Alle ${TMETA ? nf.format(TMETA.selskaper) + ' ' : ''}norske selskaper med regnskap i Regnskapsregisteret${TMETA ? `, hentet ${fmtDate(TMETA.generert)}` : ''}, lagret i en egen database. Regnskap i utenlandsk valuta er regnet om til kroner med Norges Banks årssnitt, og åpenbare feil i registeret (som beløp oppgitt i feil enhet) er rettet eller tatt ut.</p></div>
-    <div class="rv"><span>04</span><h3>Eierskap</h3><p>${REG.meta ? `Aksjonærregisteret fra Skatteetaten for ${[...REG.meta.tidligere].reverse().join(', ')} og ${REG.meta.år}: ${nf.format(REG.meta.selskaper)} selskaper og ${nf.format(REG.meta.personer)} personer. Bare i den lokale versjonen, fordi registeret inneholder personopplysninger.` : 'Eksempeldata på denne siden. Aksjonærregisteret fra Skatteetaten er foreløpig bare koblet på i den lokale versjonen, fordi det inneholder personopplysninger.'}</p></div>
+    <div class="rv"><span>04</span><h3>Eierskap</h3><p>${REG.meta ? `Aksjonærregisteret fra Skatteetaten for ${[...REG.meta.tidligere].reverse().join(', ')} og ${REG.meta.år}: ${nf.format(REG.meta.selskaper)} selskaper og ${nf.format(REG.meta.personer)} personer. For personer vises navn, fødselsår og bosted, ikke postnummer.` : 'Eksempeldata på denne siden. Aksjonærregisteret fra Skatteetaten er foreløpig bare koblet på i den lokale versjonen, fordi det inneholder personopplysninger.'}</p></div>
   </div></div></section>`;
   starField($('.ph .field'), { mode: 'breathe', sp: 11 });
 }

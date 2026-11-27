@@ -11,3 +11,6 @@ data/regnskap_alle/
 
 # Wrangler (lokal utvikling av Workeren)
 .wrangler/
+
+# Utkast til juridiske dokumenter (ikke publiser)
+dokumenter/
