@@ -582,20 +582,69 @@ const utbTop = (D, n) => D?.rader?.slice(0, n).map(r => ({ href: `#/person/${r[0
   sub: `f. ${r[2]} · via ${esc(nice(r[6]))} (${pcp(r[7])})${r[8] > 1 ? ` + ${r[8] - 1} til` : ''}` })) ?? null;
 const hlRows = (rows, empty = 'Ingen treff.') => (rows?.length ? `<ol class="irows">${rows.map((r, i) => `<li><a class="irow" href="${r.href}"><span class="ir-n num">${i + 1}</span><span class="ir-t"><b>${esc(r.name)}</b><span>${r.sub}</span></span><span class="ir-v num">${r.val}</span></a></li>`).join('')}</ol>`
   : `<p class="muted ir-empty">${rows ? empty : 'Klarte ikke å hente listen akkurat nå.'}</p>`);
+// ---------- Forsideforslag: paneler med topplister som ruller inn (#/?hero=1–3) ----------
+// Hvert panel bytter mellom tre lister hvert 5. sekund. Kortene er bare bilder av listene; hele panelet lenker til listen.
+const PN = [
+  { bg: 'pn-lys', cap: 'Bransjer', items: [
+    { kick: 'Oslo · Konsulentselskaper', title: 'Størst omsetning', href: '#/lister', q: { liste: 'oms', nace: '70.200,62.200', kommune: '0301', minans: 5 }, sub: r => `${nf.format(r.ans)} ansatte` },
+    { kick: 'Hele landet · Advokatselskaper', title: 'Tjente mest', href: '#/lister', q: { liste: 'tjente', nace: '69.100', minans: 5 }, sub: r => `Omsetning ${kr(r.rev)}` },
+    { kick: 'Oslo · Regnskapsbyråer', title: 'Høyest driftsmargin', href: '#/lister', q: { liste: 'lonnsom', nace: '69.202', kommune: '0301', min: 3e6 }, pct: true, sub: r => `Omsetning ${kr(r.rev)}` },
+  ] },
+  { bg: 'pn-mork', cap: 'Utbytte', items: UTB_BYER.map(([by, navn]) => ({ kick: `${navn} · Personer`, title: 'Mest utbytte fra holdingselskapet', href: '#/lister', utb: by })) },
+  { bg: 'pn-krem', cap: 'Topplister', items: [
+    { kick: 'Hele landet · 2025', title: 'Størst omsetning', href: '#/topplister?liste=oms', q: { liste: 'oms' }, sub: r => `${r.kommune} · ${r.bransje}` },
+    { kick: 'Hele landet · 2025', title: 'Tjente mest', href: '#/topplister?liste=tjente', q: { liste: 'tjente' }, sub: r => `${r.kommune} · ${r.bransje}` },
+    { kick: 'Hele landet · 2025', title: 'Mest lønnsomme', href: '#/topplister?liste=lonnsom', q: { liste: 'lonnsom', min: 1e7 }, pct: true, sub: r => `${r.kommune} · ${r.bransje}` },
+  ] },
+];
+const PN_LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8.5 2a6.5 6.5 0 0 1 6.5 6.5V15H8.5a6.5 6.5 0 1 1 0-13zM23.5 2a6.5 6.5 0 1 1 0 13H17V8.5A6.5 6.5 0 0 1 23.5 2zM8.5 17H15v6.5A6.5 6.5 0 1 1 8.5 17zM17 17h6.5a6.5 6.5 0 1 1-6.5 6.5z"/></svg>';
+// Radene i et kort: [{ name, sub (ferdig escapet), val }]
+const pnData1 = (it, n) => (it.utb ? loadUtb(it.utb).then(D => utbTop(D, n))
+  : topp({ ...it.q, år: '2025', n }).then(d => d?.rader.map(r => ({ name: nice(r.navn), sub: esc(it.sub(r)), val: it.pct ? pc(r.v) : kr(r.v) })) ?? null));
+// Prøver én gang til hvis listen ikke kunne hentes
+const pnData = (it, n) => pnData1(it, n).then(rows => rows ?? pnData1(it, n));
+// rows: undefined = skjelett mens listen hentes, null = kunne ikke hentes
+const pnCard = (it, rows, n) => `<div class="pc"><div class="pc-h"><span class="pc-ic">${PN_LOGO}</span><span class="pc-k">${esc(it.kick)}</span></div><b class="pc-t">${esc(it.title)}</b>
+  <ol class="pc-l">${rows ? rows.map((r, i) => `<li><span class="pc-n">${i + 1}</span><span class="pc-x"><b>${esc(r.name)}</b><small>${r.sub}</small></span><span class="pc-v">${r.val}</span></li>`).join('')
+    : rows === null ? '<li class="pc-e">Klarte ikke å hente listen akkurat nå.</li>'
+    : Array.from({ length: n }, (_, i) => `<li class="sk"><span class="skel" style="width:10px;height:11px"></span><span class="pc-x"><span class="skel" style="width:${skelW(i)}%;height:12px"></span><span class="skel" style="width:${skelW(i + 3) - 20}%;height:9px;margin-top:6px"></span></span><span class="skel" style="width:54px;height:12px"></span></li>`).join('')}</ol>
+  <div class="pc-f">Se hele listen ${ic('arrow')}</div></div>`;
+const PN_ROWS = 5;
+const pnPanels = () => `<div class="pn-row">${PN.map((P, i) => `<a class="pn ${P.bg}" href="${P.items[0].href}" aria-label="${esc(P.cap)}: ${esc(P.items[0].title)}">
+  <span class="pn-dots" aria-hidden="true">${P.items.map((_, j) => (j ? '<i></i>' : `<i class="on" style="--pd:${5 + i * 1.65}s"></i>`)).join('')}</span>
+  <span class="pc-w">${pnCard(P.items[0], undefined, PN_ROWS)}</span></a>`).join('')}</div>`;
+// Bytter liste hvert 5. sekund: radene glir ut og de nye inn, én og én. Panelene bytter forskjøvet i tid.
+function pnStart() {
+  $$('.pn').forEach((el, pi) => {
+    const P = PN[pi], w = $('.pc-w', el), data = P.items.map(it => pnData(it, PN_ROWS));
+    let cur = 0;
+    data[0].then(rows => { if (!cur) w.innerHTML = pnCard(P.items[0], rows, PN_ROWS); });
+    const next = async () => {
+      if (!el.isConnected) return;
+      const i = (cur + 1) % P.items.length, rows = await data[i];
+      if (rows === null) data[i] = pnData(P.items[i], PN_ROWS); // prøv igjen neste runde
+      cur = i;
+      el.href = P.items[i].href; el.setAttribute('aria-label', `${P.cap}: ${P.items[i].title}`);
+      $$('.pn-dots i', el).forEach((d, j) => { d.style.removeProperty('--pd'); d.classList.toggle('on', j === i); });
+      $('.pc', w).classList.add('rout');
+      setTimeout(() => { w.innerHTML = pnCard(P.items[i], rows, PN_ROWS); $('.pc', w).classList.add('rin'); }, RM ? 0 : 380);
+    };
+    timers.push(setTimeout(() => { next(); every(next, 5000); }, 5000 + pi * 1650));
+  });
+}
+
 // ---------- Forside ----------
 async function home() {
   document.title = 'Kløver – alt om norske selskaper';
   const words = ['Alt', 'om', 'norske', 'selskaper,', 'enkelt', 'forklart.'], br = 3; // linjeskift etter «selskaper,»
   V.innerHTML = `
-  <section class="hero" aria-labelledby="h-hero"><canvas class="field" aria-hidden="true"></canvas>
-    ${twinkles([[12, 24, 16, 0], [86, 18, 12, -2], [78, 72, 18, -4], [18, 76, 10, -1], [50, 12, 9, -3]])}
+  <section class="hero hp" aria-labelledby="h-hero"><canvas class="field" aria-hidden="true"></canvas>
     <div class="wrap">
-      <button class="eb glass-hi" type="button" data-scroll="#tl-prev"><span><b>Nytt:</b> Topplister for alle fylker</span><span class="eb-ar" aria-hidden="true">${ic('arrow')}</span></button>
       <h1 class="h1" id="h-hero" aria-label="${words.join(' ')}">${words.map((w, i) => `<span class="w" aria-hidden="true"><span class="wi" style="--i:${i}">${w}</span></span>${i === br ? '<br>' : ''}`).join(' ')}</h1>
-      <p class="lead">Søk blant alle norske virksomheter. Se regnskap, eiere og topplister – med forklaringer på det som er vanskelig.</p>
+      <p class="lead">Søk blant alle norske virksomheter. Se regnskap, eiere og topplister.</p>
       <div id="hs"></div>
+      ${pnPanels()}
     </div>
-    <a class="scroll-cue" href="javascript:void 0" data-scroll="#tl-prev" aria-label="Gå til topplister">Utforsk<i></i></a>
   </section>
   <section class="sec" id="tl-prev"><div class="wrap">
     <div class="lab">Topplister</div>
@@ -627,6 +676,7 @@ async function home() {
   </div></section>
 `;
   starField($('.hero .field'), { mode: 'breathe', sp: 12, mouse: false });
+  pnStart();
   constellation($('.feat-vis canvas'));
   if (await regMeta()) { const b = $('[data-expl]'); if (b) b.href = await examplePersonHref(); }
   $('#hs').append(makeSearch({ mode: 'hero' }).el);

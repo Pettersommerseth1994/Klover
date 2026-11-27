@@ -817,3 +817,76 @@ table.own-t tbody[hidden]{display:none}
 .irow.sk,.rrow.sk{pointer-events:none}
 .irow.sk .ir-t{gap:0}
 .tl-page .rrow.sk .val{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:12px}
+
+/* ---------- Forside: paneler med topplister som byttes hvert 5. sekund ---------- */
+#hs{position:relative;z-index:30}
+.hero.hp{min-height:0;display:block;padding:148px 0 0}
+.hero.hp h1{font-size:clamp(34px,3.7vw,54px);line-height:1.04;letter-spacing:-.045em}
+.hero.hp .lead{margin:18px auto 28px;font-size:17px;max-width:560px}
+.hero.hp .search{max-width:600px}
+.hero.hp .sbox{height:56px;font-size:16px}
+.hero.hp .sbox .go{height:42px}
+.pn-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:1120px;margin:64px auto 0;text-align:left}
+/* Panelet er en ramme rundt kortet: like bred på alle kanter, og høyden følger kortet */
+.pn{--f:16px;position:relative;display:flex;padding:var(--f);border-radius:12px;overflow:hidden;isolation:isolate;box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 10px 30px rgba(10,20,30,.07);transition:transform .45s var(--ease),box-shadow .45s var(--ease)}
+.pn:hover{transform:translateY(-4px);box-shadow:0 18px 44px rgba(10,20,30,.14)}
+.pn:before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none}
+.pn-lys{background:linear-gradient(165deg,#EBECA0 0%,#F2F3CC 45%,#FBFAF0 100%)}
+.pn-lys:before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Cpath d='M11 8.5v5M8.5 11h5' stroke='%23a9ab5c' stroke-width='1'/%3E%3C/svg%3E");opacity:.4}
+.pn-mork{background:radial-gradient(110% 70% at 90% 0%,rgba(235,236,160,.3),transparent 60%),#141414}
+.pn-mork:before{background-image:radial-gradient(circle,rgba(244,241,234,.55) 1px,transparent 1.4px);background-size:26px 26px;opacity:.35}
+.pn-krem{background:#F1EEE6}
+.pn-krem:before{background-image:radial-gradient(circle,rgba(0,0,0,.18) 1px,transparent 1.4px);background-size:22px 22px;opacity:.5}
+.pc-w{flex:1;display:flex;min-width:0}
+/* Kortet: et bilde av en toppliste */
+.pc{flex:1;display:flex;flex-direction:column;min-width:0;background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:8px;box-shadow:0 12px 32px rgba(10,20,30,.12),0 2px 6px rgba(10,20,30,.05);padding:14px 16px 10px;color:var(--ink)}
+.pc-h{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);padding-right:66px;min-width:0}
+.pc-k{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-ic{width:20px;height:20px;flex:none;border-radius:5px;background:var(--ink);display:grid;place-items:center}
+.pc-ic svg{width:12px;height:12px;fill:#EBECA0}
+.pc-t{display:block;font-size:16px;font-weight:500;letter-spacing:-.02em;margin:9px 0 6px}
+.pc-l{list-style:none;margin:0;padding:0}
+.pc-l li{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #eeede8}
+.pc-l li.pc-e{display:block;padding:14px 0;font-size:13px;color:var(--mut)}
+.pc-n{font-size:12px;font-weight:600;color:var(--mut)}
+.pc-x{display:flex;flex-direction:column;min-width:0}
+.pc-x b{font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-x small{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-v{font-size:13.5px;font-weight:500;letter-spacing:-.01em;white-space:nowrap}
+.pc-f{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:auto;font-size:12px;color:var(--mut);padding-top:9px;border-top:1px solid #eeede8}
+.pc-f svg{width:12px;height:12px}
+/* Strekene viser hvilken liste som vises og når neste kommer; de ligger oppe til høyre i kortet */
+.pn-dots{position:absolute;z-index:2;top:calc(var(--f) + 23px);right:calc(var(--f) + 16px);display:flex;gap:4px}
+.pn-dots i{position:relative;width:16px;height:3px;border-radius:2px;background:rgba(0,0,0,.12);overflow:hidden}
+.pn-dots i.on:after{content:'';position:absolute;inset:0;background:var(--ink);transform-origin:left;animation:pnbar var(--pd,5s) linear forwards}
+@keyframes pnbar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* Radene glir ut og inn én og én */
+.pc.rout .pc-l li{animation:pcout .3s ease-in forwards}
+.pc.rout .pc-t,.pc.rout .pc-k{transition:opacity .25s;opacity:0}
+.pc.rin .pc-k,.pc.rin .pc-t{animation:pcfade .45s both}
+.pc.rin .pc-l li{animation:pcin .6s cubic-bezier(.2,.8,.2,1) both}
+.pc.rin .pc-l li:nth-child(2),.pc.rout .pc-l li:nth-child(2){animation-delay:.05s}
+.pc.rin .pc-l li:nth-child(3),.pc.rout .pc-l li:nth-child(3){animation-delay:.1s}
+.pc.rin .pc-l li:nth-child(4),.pc.rout .pc-l li:nth-child(4){animation-delay:.15s}
+.pc.rin .pc-l li:nth-child(5),.pc.rout .pc-l li:nth-child(5){animation-delay:.2s}
+@keyframes pcout{to{transform:translateX(-26px);opacity:0}}
+@keyframes pcin{from{transform:translateX(30px);opacity:0}}
+@keyframes pcfade{from{opacity:0}}
+/* Nettbrett og mobil: panelene blas sidelengs */
+@media(max-width:900px){
+  .pn-row{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:min(46vw,380px);max-width:none;overflow-x:auto;scroll-snap-type:x mandatory;margin:44px calc(-1 * var(--pad)) 0;padding:0 var(--pad) 28px;scroll-padding:0 var(--pad);scrollbar-width:none}
+  .pn-row::-webkit-scrollbar{display:none}
+  .pn{scroll-snap-align:start}
+  .pn:hover{transform:none}
+}
+@media(max-width:760px){
+  .hero.hp{padding:108px 0 0}
+  .hero.hp h1{font-size:min(36px,calc((100vw - 2 * var(--pad)) / 8.6))}
+  .hero.hp .lead{font-size:15.5px;margin:14px auto 22px}
+  .pn-row{grid-auto-columns:82vw}
+  .pn{--f:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  .pc.rin .pc-l li,.pc.rout .pc-l li,.pc.rin .pc-k,.pc.rin .pc-t{animation:none}
+  .pn-dots i.on:after{animation:none;transform:none}
+}
