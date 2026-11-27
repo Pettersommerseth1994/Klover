@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- Kilde til delingsbildet assets/og.png (1200 × 630). Lag det på nytt med:
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --force-device-scale-factor=1 --window-size=1200,630 --virtual-time-budget=6000 --screenshot=assets/og.png "file://$PWD/scripts/delingsbilde.html"
+-->
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=block" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1200px;height:630px;overflow:hidden}
+  body{font-family:'Inter Tight',system-ui,sans-serif;color:#111;background:#FEFDFA;position:relative;-webkit-font-smoothing:antialiased}
+  /* Stjernefelt som på forsiden: små kryss, tydeligst i kantene */
+  .field{position:absolute;inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Cpath d='M11 8.5v5M8.5 11h5' stroke='%23c9c8c2' stroke-width='1'/%3E%3C/svg%3E");
+    -webkit-mask-image:radial-gradient(ellipse 62% 70% at 34% 52%,transparent 0%,transparent 45%,rgba(0,0,0,.55) 75%,#000 100%);
+    mask-image:radial-gradient(ellipse 62% 70% at 34% 52%,transparent 0%,transparent 45%,rgba(0,0,0,.55) 75%,#000 100%)}
+  .glow{position:absolute;right:-120px;top:-140px;width:620px;height:620px;border-radius:50%;background:radial-gradient(circle,rgba(235,236,160,.55) 0%,rgba(235,236,160,0) 65%)}
+  .logo{position:absolute;left:72px;top:58px;display:flex;align-items:center;gap:12px;font-size:34px;font-weight:600;letter-spacing:-.03em}
+  .logo svg{width:38px;height:38px}
+  .text{position:absolute;left:72px;top:170px;width:600px}
+  h1{font-size:74px;font-weight:500;letter-spacing:-.05em;line-height:.98}
+  p{margin-top:26px;font-size:25px;line-height:1.35;color:#6b6f76;letter-spacing:-.01em;width:540px}
+  .url{position:absolute;left:72px;bottom:58px;display:inline-flex;align-items:center;gap:10px;height:46px;padding:0 22px;border-radius:999px;background:#EBECA0;font-size:21px;font-weight:500;letter-spacing:-.01em}
+  .url i{width:8px;height:8px;border-radius:50%;background:#111}
+  /* Utsnitt av en toppliste */
+  .card{position:absolute;right:64px;top:118px;width:440px;padding:24px 26px 18px;border-radius:10px;background:rgba(255,255,255,.78);border:1px solid rgba(0,0,0,.06);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.9),0 24px 60px rgba(10,20,30,.12),0 4px 14px rgba(10,20,30,.05)}
+  .k{font-size:15px;color:#6b6f76}
+  .card h2{font-size:25px;font-weight:500;letter-spacing:-.03em;margin-top:4px}
+  .seg{display:inline-grid;grid-auto-flow:column;gap:2px;padding:3px;border-radius:8px;background:#ebe9e3;margin:16px 0 8px}
+  .seg span{padding:7px 13px;font-size:14px;font-weight:500;color:#6b6f76;border-radius:6px}
+  .seg span.on{background:#fff;color:#111;box-shadow:0 1px 2px rgba(0,0,0,.08),0 2px 8px rgba(10,20,30,.08)}
+  .row{display:grid;grid-template-columns:22px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #e9e8e3}
+  .row .n{font-size:15px;font-weight:600;color:#6b6f76}
+  .row b{display:block;font-size:19px;font-weight:500;letter-spacing:-.015em}
+  .row s{display:block;text-decoration:none;font-size:13px;color:#6b6f76;margin-top:2px}
+  .row em{font-style:normal;font-size:19px;font-weight:500;letter-spacing:-.02em}
+  .bar{grid-column:2/-1;height:4px;border-radius:2px;background:#ebe9e3;margin-top:-4px}
+  .bar i{display:block;height:100%;border-radius:2px;background:#C8C95E}
+</style>
+</head>
+<body>
+  <div class="field"></div>
+  <div class="glow"></div>
+  <div class="logo"><svg viewBox="0 0 32 32" fill="#111" aria-hidden="true"><path d="M8.5 2a6.5 6.5 0 0 1 6.5 6.5V15H8.5a6.5 6.5 0 1 1 0-13zM23.5 2a6.5 6.5 0 1 1 0 13H17V8.5A6.5 6.5 0 0 1 23.5 2zM8.5 17H15v6.5A6.5 6.5 0 1 1 8.5 17zM17 17h6.5a6.5 6.5 0 1 1-6.5 6.5z"/></svg>Kløver</div>
+  <div class="text">
+    <h1>Alt om norske<br>selskaper,<br>enkelt forklart.</h1>
+    <p>Regnskap, eiere og topplister for alle norske aksjeselskaper.</p>
+  </div>
+  <div class="url"><i></i>kløver.com</div>
+  <div class="card">
+    <div class="k">Topplister · Regnskapsår 2025</div>
+    <h2>Størst omsetning</h2>
+    <div class="seg"><span class="on">Omsetning</span><span>Margin</span><span>Resultat</span><span>Utbytte</span></div>
+    <div class="row"><span class="n">1</span><span><b>Equinor ASA</b><s>Stavanger · Utvinning av råolje</s></span><em>706,1 mrd. kr</em></div>
+    <div class="row" style="border:0;padding:0 0 4px"><span></span><div class="bar" style="grid-column:2/-1"><i style="width:100%"></i></div></div>
+    <div class="row"><span class="n">2</span><span><b>Equinor Energy AS</b><s>Stavanger · Utvinning av naturgass</s></span><em>386,8 mrd. kr</em></div>
+    <div class="row" style="border:0;padding:0 0 4px"><span></span><div class="bar" style="grid-column:2/-1"><i style="width:55%"></i></div></div>
+    <div class="row"><span class="n">3</span><span><b>Aker BP ASA</b><s>Bærum · Utvinning av råolje</s></span><em>113,7 mrd. kr</em></div>
+    <div class="row" style="border:0;padding:0 0 4px"><span></span><div class="bar" style="grid-column:2/-1"><i style="width:16%"></i></div></div>
+  </div>
+</body>
+</html>
