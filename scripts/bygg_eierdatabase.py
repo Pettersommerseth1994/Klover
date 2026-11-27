@@ -14,8 +14,6 @@ Tabeller:
     navn      personsøk: én rad per ord i navnet, så søket kan slå opp på begynnelsen av et ord
     skjult    personer som har bedt om å ikke vises (fylles med scripts/skjul_person.py, beholdes ved ny import)
 
-Kjør scripts/bygg_utbytteliste.py etterpå: dette skriptet tømmer d1-mappen, også utbyttelistene.
-
 Importer lokalt (for «wrangler dev»), én fil om gangen:
     for f in data/aksjonaerregister/d1/*.sql; do npx wrangler d1 execute klover-eiere --local -c proxy/wrangler.dev.toml --file "$f"; done
 Publisering: opprett databasen i EU (kan ikke endres senere), legg bindingen EIERE inn i proxy/wrangler.toml,

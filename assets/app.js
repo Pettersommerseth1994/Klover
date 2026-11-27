@@ -210,7 +210,6 @@ const GL = {
   pre: 'Driftsresultat pluss netto finansposter. Det selskapet tjente før skatten er trukket fra.',
   tax: 'Beregnet skatt på årets resultat, inkludert endring i utsatt skatt. Er ikke nødvendigvis det som faktisk ble betalt i året.',
   net: 'Bunnlinja: det som er igjen etter alle kostnader og skatt. Kan deles ut som utbytte eller beholdes i selskapet.',
-  div: 'Vårt anslag: årsresultat minus økningen i opptjent egenkapital. Kan avvike fra faktisk utbytte hvis det har vært konsernbidrag, fusjoner eller andre bevegelser i egenkapitalen.',
   anlegg: 'Eiendeler som skal brukes over lang tid, som bygninger, maskiner, programvare og langsiktige investeringer.',
   varer: 'Verdien av varelageret: råvarer, varer under arbeid og ferdigvarer.',
   fordr: 'Penger selskapet har til gode, for eksempel fra kunder som ikke har betalt ennå.',
@@ -530,7 +529,6 @@ const PRESETS = [
   { k: 'lonnsom', t: 'Mest lønnsomme', s: 'Høyest driftsmargin', f: v => pc(v), dir: -1, min: 10e6, sub: y => 'Driftsresultat ' + kr(y.op) },
   { k: 'tjente', t: 'Tjente mest', s: 'Høyest årsresultat', f: kr, dir: -1, sub: y => 'Omsetning ' + kr(y.rev) },
   { k: 'tapte', t: 'Tapte mest', s: 'Lavest årsresultat', f: kr, dir: 1, sub: y => 'Omsetning ' + kr(y.rev) },
-  { k: 'utbytte', t: 'Størst utbytte', s: 'Estimert fra regnskapet', f: kr, dir: -1, sub: y => (y.net > 0 && y.div ? pc(y.div / y.net * 100, 0) + ' av årsresultatet' : '') },
   { k: 'ek', t: 'Mest egenkapital', s: 'Størst sum egenkapital', f: kr, dir: -1, sub: y => (y.ass ? 'Egenkapitalandel ' + pc(y.eq / y.ass * 100, 0) : '') },
   { k: 'oms', t: 'Størst omsetning', s: 'Sum driftsinntekter', f: kr, dir: -1, sub: y => 'Årsresultat ' + kr(y.net) },
   { k: 'vekst', t: 'Raskest vekst', s: 'Omsetningsvekst fra året før', f: sgn, dir: -1, min: 10e6, sub: y => 'Omsetning ' + kr(y.rev) },
@@ -569,17 +567,6 @@ const skelCard = n => `<article class="card glass" aria-hidden="true"><span clas
 // Kjører fn etter ms millisekunder hvis løftet ikke er ferdig ennå
 const slow = (promise, ms, fn) => { const t = setTimeout(fn, ms); return promise.finally(() => clearTimeout(t)); };
 
-// ---------- Utbyttelisten per by (#/lister) ----------
-const UTB_BYER = [['trondheim', 'Trondheim'], ['bergen', 'Bergen'], ['oslo', 'Oslo']];
-// Utbyttelisten per by: de 50 øverste ligger i eierdatabasen (scripts/bygg_utbytteliste.py) og hentes fra Workeren
-const UTB = new Map();
-const loadUtb = by => {
-  if (!UTB.has(by)) UTB.set(by, getJSON(`${REG_API}/utbytte?by=${by}&n=50`).then(d => { if (!d?.rader) UTB.delete(by); return d; }));
-  return UTB.get(by);
-};
-// Rad: [nøkkel, navn, fødselsår, sted, anslått utbytte, største holdingselskap, navn, andel, antall selskaper]
-const utbTop = (D, n) => D?.rader?.slice(0, n).map(r => ({ href: `#/person/${r[0]}`, name: nice(r[1]), val: kr(r[4]),
-  sub: `f. ${r[2]} · via ${esc(nice(r[6]))} (${pcp(r[7])})${r[8] > 1 ? ` + ${r[8] - 1} til` : ''}` })) ?? null;
 const hlRows = (rows, empty = 'Ingen treff.') => (rows?.length ? `<ol class="irows">${rows.map((r, i) => `<li><a class="irow" href="${r.href}"><span class="ir-n num">${i + 1}</span><span class="ir-t"><b>${esc(r.name)}</b><span>${r.sub}</span></span><span class="ir-v num">${r.val}</span></a></li>`).join('')}</ol>`
   : `<p class="muted ir-empty">${rows ? empty : 'Klarte ikke å hente listen akkurat nå.'}</p>`);
 // ---------- Forsideforslag: paneler med topplister som ruller inn (#/?hero=1–3) ----------
@@ -590,7 +577,8 @@ const PN = [
     { kick: 'Hele landet · Advokatselskaper', title: 'Tjente mest', href: '#/lister', q: { liste: 'tjente', nace: '69.100', minans: 5 }, sub: r => `Omsetning ${kr(r.rev)}` },
     { kick: 'Oslo · Regnskapsbyråer', title: 'Høyest driftsmargin', href: '#/lister', q: { liste: 'lonnsom', nace: '69.202', kommune: '0301', min: 3e6 }, pct: true, sub: r => `Omsetning ${kr(r.rev)}` },
   ] },
-  { bg: 'pn-mork', cap: 'Utbytte', items: UTB_BYER.map(([by, navn]) => ({ kick: `${navn} · Personer`, title: 'Mest utbytte fra holdingselskapet', href: '#/lister', utb: by })) },
+  { bg: 'pn-mork', cap: 'Byer', items: [['Oslo', 'Oslo', '0301'], ['Bergen', 'Vestland', '4601'], ['Trondheim', 'Trøndelag', '5001']].map(([by, fylke, knr]) => (
+    { kick: `${by} · 2025`, title: 'Tjente mest', href: `#/topplister?liste=tjente&fylke=${encodeURIComponent(fylke)}&kommune=${knr}`, q: { liste: 'tjente', kommune: knr }, sub: r => r.bransje })) },
   { bg: 'pn-krem', cap: 'Topplister', items: [
     { kick: 'Hele landet · 2025', title: 'Størst omsetning', href: '#/topplister?liste=oms', q: { liste: 'oms' }, sub: r => `${r.kommune} · ${r.bransje}` },
     { kick: 'Hele landet · 2025', title: 'Tjente mest', href: '#/topplister?liste=tjente', q: { liste: 'tjente' }, sub: r => `${r.kommune} · ${r.bransje}` },
@@ -599,8 +587,7 @@ const PN = [
 ];
 const PN_LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8.5 2a6.5 6.5 0 0 1 6.5 6.5V15H8.5a6.5 6.5 0 1 1 0-13zM23.5 2a6.5 6.5 0 1 1 0 13H17V8.5A6.5 6.5 0 0 1 23.5 2zM8.5 17H15v6.5A6.5 6.5 0 1 1 8.5 17zM17 17h6.5a6.5 6.5 0 1 1-6.5 6.5z"/></svg>';
 // Radene i et kort: [{ name, sub (ferdig escapet), val }]
-const pnData1 = (it, n) => (it.utb ? loadUtb(it.utb).then(D => utbTop(D, n))
-  : topp({ ...it.q, år: '2025', n }).then(d => d?.rader.map(r => ({ name: nice(r.navn), sub: esc(it.sub(r)), val: it.pct ? pc(r.v) : kr(r.v) })) ?? null));
+const pnData1 = (it, n) => topp({ ...it.q, år: '2025', n }).then(d => d?.rader.map(r => ({ name: nice(r.navn), sub: esc(it.sub(r)), val: it.pct ? pc(r.v) : kr(r.v) })) ?? null);
 // Prøver én gang til hvis listen ikke kunne hentes
 const pnData = (it, n) => pnData1(it, n).then(rows => rows ?? pnData1(it, n));
 // rows: undefined = skjelett mens listen hentes, null = kunne ikke hentes
@@ -671,7 +658,7 @@ async function home() {
     <div class="sv">
       <div class="rv"><span>01</span><h3>Søk</h3><p>Finn et selskap på navn eller organisasjonsnummer – eller søk på en person for å se hva de eier.</p></div>
       <div class="rv"><span>02</span><h3>Forstå</h3><p>Hvert tall har en forklaring. Innsiktskortene oversetter regnskapet til korte, konkrete fakta.</p></div>
-      <div class="rv"><span>03</span><h3>Sammenlign</h3><p>Topplistene viser hvem som tjener mest, tapte mest og tok ut mest utbytte – i hele landet eller i din kommune.</p></div>
+      <div class="rv"><span>03</span><h3>Sammenlign</h3><p>Topplistene viser hvem som tjener mest, tapte mest og vokser raskest – i hele landet eller i din kommune.</p></div>
     </div>
   </div></section>
 `;
@@ -695,7 +682,7 @@ async function home() {
   let tok = 0;
   const renderPrev = async () => {
     const base = { fylke: fy, år: '2025', n: 5 }, my = ++tok;
-    const job = Promise.all([['lonnsom', 1e7], ['utbytte', 0], ['tjente', 0]].map(([k, min]) => rankRows({ ...base, liste: k, min })));
+    const job = Promise.all([['lonnsom', 1e7], ['oms', 0], ['tjente', 0]].map(([k, min]) => rankRows({ ...base, liste: k, min })));
     const lists = await slow(job, 120, () => { if (my === tok && $('#tlp')) $('#tlp').innerHTML = skelCard(5).repeat(3); });
     if (my !== tok || !$('#tlp')) return;
     $('#tlp').innerHTML = lists.map(({ p, rows, feil }) => {
@@ -710,12 +697,11 @@ async function home() {
 
 // ---------- Topplister-side ----------
 // ---------- Nye topplister (#/lister) ----------
-// Tre lister fra databasen. Utbyttelisten bygger på aksjonærregisteret og finnes bare lokalt (personopplysninger).
+// Tre lister fra databasen.
 async function listIdeas() {
   document.title = 'Nye topplister – Kløver';
   const Y = '2025';
-  const st = { kons: 'mest', adv: 'net', by: 'trondheim' };
-  const byNavn = k => (UTB_BYER.find(b => b[0] === k) || [k, k])[1];
+  const st = { kons: 'mest', adv: 'net' };
   const short = c => (c.nace === '62.200' ? 'IT-konsulent' : c.nace === '70.200' ? 'Rådgivning' : '');
   const co = (c, val, sub) => ({ href: `#/selskap/${c.org}`, name: nice(c.navn), val, sub });
   const ans = c => `${nf.format(c.ans)} ansatte`;
@@ -739,35 +725,33 @@ async function listIdeas() {
   V.innerHTML = `<section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap">
     <div class="crumb"><a href="#/topplister">Topplister</a><span>/</span><span>Nye lister</span></div>
     <h1 class="h1" style="font-size:clamp(40px,5.8vw,84px)">Nye topplister</h1>
-    <p class="lead" style="margin-top:18px">Fire nye lister med regnskapene for ${Y}, for alle norske aksjeselskaper i bransjen og for personer med holdingselskap.</p></div></section>
+    <p class="lead" style="margin-top:18px">Tre nye lister med regnskapene for ${Y}, for alle norske aksjeselskaper i bransjen.</p></div></section>
   <div class="wrap" style="padding-bottom:110px"><div class="ideas">
     ${card('i-kons', 'Oslo · Konsulentselskaper', 'Mest og minst lønnsomme per ansatt', `Driftsresultat delt på antall ansatte, ${Y}. Bedriftsrådgivning og IT-konsulenter med minst 5 ansatte og 5 mill. kr i omsetning.`, seg('kons', [['mest', 'Mest lønnsomme'], ['minst', 'Minst lønnsomme']]), '<span data-tot="kons"></span> Antall ansatte er det Enhetsregisteret oppgir i dag.')}
-    ${card('i-utb', `${byNavn(st.by)} · Personer`, 'Hvem tok mest utbytte fra holdingselskapet sitt?', `Anslått utbytte for ${Y} fra holdingselskaper der personen eier minst 20 %, ganget med eierandelen.`, `<div class="idea-tag">Anslag fra regnskapene</div>${seg('by', UTB_BYER)}`, 'Utbyttet er anslått fra regnskapet: årsresultat minus økningen i opptjent egenkapital. Holdingselskaper er her selskaper med «holding» i navnet. Selskaper der nesten hele egenkapitalen forsvant (som regel fusjon eller fisjon) er tatt ut. Byen er postnumrene i kommunen.')}
     ${card('i-adv', 'Hele landet · Advokatselskaper', `Advokatselskapene som tjente mest i ${Y}`, 'Juridisk tjenesteyting med minst 5 ansatte. Mange advokatfirmaer er organisert som DA eller ANS og har ikke offentlig regnskap – de er ikke med.', seg('adv', [['net', 'Årsresultat'], ['rev', 'Omsetning'], ['per', 'Per ansatt']]), '<span data-tot="adv"></span>')}
     ${card('i-regn', 'Oslo · Regnskapsbyråer', `Høyest driftsmargin i ${Y}`, 'Driftsresultat delt på omsetning. Regnskapsføring og bokføring med ansatte og minst 3 mill. kr i omsetning.', '', '<span data-tot="regn"></span>')}
   </div>
-  <p class="note">${ic('info')} <span>Kilder: Enhetsregisteret og Regnskapsregisteret (åpne data, NLOD), og aksjonærregisteret fra Skatteetaten. Bare aksjeselskaper (AS og ASA) er med. Bransjekodene er de nye fra SSB (SN2025).</span></p></div>`;
+  <p class="note">${ic('info')} <span>Kilder: Enhetsregisteret og Regnskapsregisteret (åpne data, NLOD). Bare aksjeselskaper (AS og ASA) er med. Bransjekodene er de nye fra SSB (SN2025).</span></p></div>`;
   starField($('.ph .field'), { mode: 'breathe', sp: 11 });
   $$('.ideas [data-thumb]').forEach(thumb);
-  const ids = { kons: 'i-kons', adv: 'i-adv', regn: 'i-regn', by: 'i-utb' };
+  const ids = { kons: 'i-kons', adv: 'i-adv', regn: 'i-regn' };
   // Henter én liste; skjelettet vises igjen bare hvis svaret tar tid
   const load = async k => {
-    const want = k === 'by' ? st.by : st[k], body = $(`#${ids[k]} .idea-b`);
+    const want = st[k], body = $(`#${ids[k]} .idea-b`);
     if (!body) return;
-    const job = k === 'by' ? loadUtb(st.by).then(D => ({ rows: utbTop(D, 10) })) : topp({ ...Q[k](), år: Y }).then(d => ({ rows: R[k](d), total: d?.total }));
-    const res = await slow(job, 120, () => { if ((k === 'by' ? st.by : st[k]) === want) body.innerHTML = skelRows(10); });
-    if ((k === 'by' ? st.by : st[k]) !== want || !body.isConnected) return;
+    const job = topp({ ...Q[k](), år: Y }).then(d => ({ rows: R[k](d), total: d?.total }));
+    const res = await slow(job, 120, () => { if (st[k] === want) body.innerHTML = skelRows(10); });
+    if (st[k] !== want || !body.isConnected) return;
     body.innerHTML = hlRows(res.rows);
     const tot = $(`[data-tot="${k}"]`);
     if (tot && res.total != null) tot.textContent = `${nf.format(res.total)} selskaper med regnskap.`;
   };
-  ['kons', 'by', 'adv', 'regn'].forEach(load);
+  ['kons', 'adv', 'regn'].forEach(load);
   onV('click', e => {
     const b = e.target.closest('.idea [data-v]'); if (!b) return;
     const box = b.closest('[data-idea]'), k = box.dataset.idea; if (st[k] === b.dataset.v) return;
     st[k] = b.dataset.v;
     $$('button', box).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); thumb(box);
-    if (k === 'by') $('#i-utb .ov-k').textContent = `${byNavn(st.by)} · Personer`;
     load(k);
   });
 }
@@ -787,7 +771,7 @@ async function toplists(q) {
   V.innerHTML = `<div class="tl-page">
   <section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap"><div class="lab nl">Topplister</div><div id="tl-h"></div></div></section>
   <div class="wrap" style="padding-bottom:80px">
-    <a class="idea-ban glass" href="#/lister"><span><b>Nytt:</b> Fire nye lister – konsulenter per ansatt, advokater, regnskapsbyråer og utbytte</span><span class="eb-ar" aria-hidden="true">${ic('arrow')}</span></a>
+    <a class="idea-ban glass" href="#/lister"><span><b>Nytt:</b> Tre nye lister – konsulenter per ansatt, advokater og regnskapsbyråer</span><span class="eb-ar" aria-hidden="true">${ic('arrow')}</span></a>
     <div class="lists" role="tablist" aria-label="Velg toppliste">${PRESETS.map(x => `<button class="chip" role="tab" data-l="${x.k}">${esc(x.t)}</button>`).join('')}</div>
     <div class="tb glass" id="tb"></div>
     <div class="fpanel glass" id="fp" hidden></div>
@@ -795,7 +779,7 @@ async function toplists(q) {
     <p class="sr" aria-live="polite" id="cnt"></p>
     <div class="rows glass" id="rows">${skelRrows(10)}</div>
     <div id="more" style="text-align:center;margin-top:16px"></div>
-    <p class="note">${ic('info')} <span>Topplistene omfatter ${TMETA ? nf.format(TMETA.selskaper) : 'alle'} norske selskaper med regnskap i Regnskapsregisteret${TMETA ? `, hentet ${fmtDate(TMETA.generert)}` : ''}. Selskaper som er konkurs eller under avvikling, og utenlandske foretak (NUF) er ikke med. Regnskap i utenlandsk valuta er regnet om til kroner med Norges Banks årssnitt. Mest lønnsomme og mest solide gjelder selskaper med ansatte. Utbytte er estimert som årsresultat minus endring i opptjent egenkapital.</span></p>
+    <p class="note">${ic('info')} <span>Topplistene omfatter ${TMETA ? nf.format(TMETA.selskaper) : 'alle'} norske selskaper med regnskap i Regnskapsregisteret${TMETA ? `, hentet ${fmtDate(TMETA.generert)}` : ''}. Selskaper som er konkurs eller under avvikling, og utenlandske foretak (NUF) er ikke med. Regnskap i utenlandsk valuta er regnet om til kroner med Norges Banks årssnitt. Mest lønnsomme og mest solide gjelder selskaper med ansatte.</span></p>
   </div></div>`;
   starField($('.ph .field'), { mode: 'breathe', sp: 11 });
   const sync = () => {
@@ -893,7 +877,6 @@ function parseYears(rs) {
   }
   ys.forEach((c, i) => {
     const p = ys[i - 1];
-    if (p && c.net != null && c.opptjent != null && p.opptjent != null) c.div = Math.max(0, c.net - (c.opptjent - p.opptjent));
     const r = (a, b) => (a != null && b ? a / b * 100 : null);
     Object.assign(c, { r_margin: r(c.op, c.rev), r_nm: r(c.net, c.rev), r_ek: r(c.eq, c.ass), r_tkr: c.pre != null && c.ass ? (c.pre + (c.finKost || 0)) / c.ass * 100 : null,
       r_ekr: c.eq > 0 ? r(c.net, c.eq) : null, r_lik: c.omlop != null && c.kort ? c.omlop / c.kort : null, r_lonn: c.wage ? r(c.wage, c.rev) : null });
@@ -911,7 +894,6 @@ function facts(name, ys, ent, ro, own) {
       if (L.op >= 0) add('Lønnsomhet', `${Math.round(L.op / L.rev * 100)} øre`, `Av hver krone ${n} tok inn, ble <b>${Math.round(L.op / L.rev * 100)} øre</b> igjen som driftsresultat.`);
       else add('Driftsresultat', kr(L.op), `Driftsresultatet ble <b>${kr(L.op)}</b> i ${L.y}${ys.length === 1 ? ' – ikke uvanlig i et første driftsår.' : '.'}`);
     }
-    if (L.div > 0) add('Utbytte (estimat)', kr(L.div), `Eierne fikk anslagsvis <b>${kr(L.div)}</b> i utbytte${L.net > 0 ? ` – ${pc(L.div / L.net * 100, 0)} av årsresultatet` : ''}.`);
     if (L.rev > 0 && L.cost) add('Kostnader', `${dec(L.cost / L.rev, 2)} kr`, `For hver krone som kom inn, brukte ${n} <b>${dec(L.cost / L.rev, 2)} kr</b> på drift.`);
     if (Pv && L.net > 0 && Pv.net > 0) { const d = (L.net / Pv.net - 1) * 100; add('Bunnlinja', sgn(d), `Årsresultatet ${d >= 0 ? 'økte' : 'falt'} fra <b>${kr(Pv.net)}</b> til <b>${kr(L.net)}</b>.`); }
     if (L.tax > 0) add('Skatt', kr(L.tax), `${n} kostnadsførte <b>${kr(L.tax)}</b> i skatt – rundt <b>${kr(L.tax / 365)}</b> per dag.`);
@@ -981,7 +963,7 @@ function chartSVG(ys, key, si, cw = 820, hh = 0) {
 const ROWS = [
   ['g', 'Resultatregnskap'], ['Salgsinntekter', 'salg'], ['Sum driftsinntekter', 'rev', 1], ['Lønnskostnad', 'wage'], ['Sum driftskostnader', 'cost'],
   ['Driftsresultat', 'op', 1], ['Finansinntekter', 'finInn'], ['Finanskostnader', 'finKost'], ['Resultat før skatt', 'pre', 1], ['Skattekostnad', 'tax'],
-  ['Årsresultat', 'net', 1], ['Estimert utbytte', 'div'],
+  ['Årsresultat', 'net', 1],
   ['g', 'Balanse – eiendeler'], ['Sum anleggsmidler', 'anlegg'], ['Varer', 'varer'], ['Fordringer', 'fordr'], ['Bankinnskudd og kontanter', 'bank'], ['Sum omløpsmidler', 'omlop'], ['Sum eiendeler', 'ass', 1],
   ['g', 'Balanse – egenkapital og gjeld'], ['Innskutt egenkapital', 'innskutt'], ['Opptjent egenkapital', 'opptjent'], ['Sum egenkapital', 'eq', 1], ['Langsiktig gjeld', 'lang'], ['Kortsiktig gjeld', 'kort'], ['Sum gjeld', 'gjeld', 1],
   ['g', 'Nøkkeltall'], ['Driftsmargin', 'r_margin', 0, '%'], ['Resultatmargin', 'r_nm', 0, '%'], ['Egenkapitalandel', 'r_ek', 0, '%'], ['Totalkapitalrentabilitet', 'r_tkr', 0, '%'],
@@ -1201,13 +1183,13 @@ async function company(id) {
     if ($('#kpis')) {
       $('#ov-h').textContent = `Nøkkeltall ${L.y}`;
       $('#ov-p').textContent = Pv ? `Sammenlignet med ${Pv.y}. Bla mellom årene øverst til høyre.` : ys.length === 1 ? 'Første regnskapsår vi har tall for.' : `Det eldste året vi har tall for.`;
-      const K = [['rev', 'Driftsinntekter'], ['op', 'Driftsresultat'], ['net', 'Årsresultat'], ['eq', 'Sum egenkapital'], ['div', 'Estimert utbytte'], ['r_ek', 'Egenkapitalandel']];
+      const K = [['rev', 'Driftsinntekter'], ['op', 'Driftsresultat'], ['net', 'Årsresultat'], ['eq', 'Sum egenkapital'], ['r_margin', 'Driftsmargin'], ['r_ek', 'Egenkapitalandel']];
       $('#kpis').innerHTML = K.map(([k, t]) => {
         const v = L[k], p = Pv?.[k], pct = k.startsWith('r_');
         const vals = ys.map(y => y[k] ?? 0), mx = Math.max(...vals.map(Math.abs), 1);
         const d = pct ? (v != null && p != null ? `<span class="${v - p >= 0 ? 'up' : 'dn'}">${trend(v - p >= 0)}${dec(Math.abs(v - p), 1)} poeng</span>` : '') : arrow(chg(v, p));
         return `<div class="kc glass"><div class="k">${t}${info(k === 'eq' ? 'eq' : k, t)}</div><div class="v num">${pct ? pc(v, 0) : kr(v)}</div>
-          <div class="d"><span>${v == null && k === 'div' ? 'Krever to års regnskap' : d ? `${d} <span class="muted">fra ${Pv.y}</span>` : ''}</span>${ys.length > 1 ? `<span class="spark" aria-hidden="true">${vals.map((x, i) => `<i class="${i === si ? 'on' : ''}" style="height:${Math.max(8, Math.abs(x) / mx * 100)}%"></i>`).join('')}</span>` : ''}</div></div>`;
+          <div class="d"><span>${d ? `${d} <span class="muted">fra ${Pv.y}</span>` : ''}</span>${ys.length > 1 ? `<span class="spark" aria-hidden="true">${vals.map((x, i) => `<i class="${i === si ? 'on' : ''}" style="height:${Math.max(8, Math.abs(x) / mx * 100)}%"></i>`).join('')}</span>` : ''}</div></div>`;
       }).join('');
     }
     if ($('#chartbox')) {
@@ -1597,7 +1579,6 @@ function privacy() {
     ${sec('Hvem er ansvarlig', `<p>Pesom Holding AS (org.nr 923 729 674) er behandlingsansvarlig for personopplysningene på Kløver. Spørsmål om personvern sender du til <a class="lnk" href="${PERSONVERN_MAILTO}">${esc(PERSONVERN_EPOST)}</a>.</p>`)}
     ${sec('Hvilke opplysninger vi viser', `<p>For personer som eier aksjer i norske aksjeselskaper viser vi navn, fødselsår, poststed, antall aksjer, eierandel og endringen fra året før. Eierandeler gjennom holdingselskaper regnes ut fra de samme opplysningene.</p>
       <p>For personer med roller i selskaper, som styremedlem eller daglig leder, viser vi navn, fødselsår og rolle.</p>
-      <p>I noen byer viser vi også hvilke personer som fikk mest utbytte fra holdingselskapene sine. Utbyttet er et anslag: selskapets utbytte fra regnskapet, ganget med personens eierandel. Bare de 50 øverste i hver by er med.</p>
       <p>Vi viser ikke adresse, postnummer, fødselsdato eller fødselsnummer.</p>`)}
     ${sec('Hvor opplysningene kommer fra', `<p>Eieropplysningene kommer fra aksjonærregisteret hos Skatteetaten, og gjelder eierskap per 31. desember hvert år. Aksjeeierboken er offentlig, og Skatteetaten gjør opplysningene tilgjengelige for alle.</p>
       <p>Roller, selskapsopplysninger og regnskap kommer fra Brønnøysundregistrene (åpne data, NLOD).</p>`)}
@@ -1623,7 +1604,7 @@ async function about() {
     <p class="lead" style="margin-top:22px">Kløver er bygget på åpne data fra Brønnøysundregistrene, lisensiert under Norsk lisens for offentlige data (NLOD).</p></div></section>
   <section class="sec" style="padding-top:30px"><div class="wrap"><div class="sv">
     <div class="rv"><span>01</span><h3>Enhetsregisteret</h3><p>Navn, adresse, bransje, ansatte, stiftelsesdato, navnehistorikk og roller. Hentes direkte og er alltid oppdatert.</p></div>
-    <div class="rv"><span>02</span><h3>Regnskapsregisteret</h3><p>Resultat og balanse for de tre siste årene. ${LOCAL || PROXY ? 'Hentes direkte.' : 'Den publiserte siden viser et lagret utdrag for selskapene i topplistene, fordi registeret ikke kan kalles direkte fra nettleseren.'} Utbytte er estimert som årsresultat minus endring i opptjent egenkapital.</p></div>
+    <div class="rv"><span>02</span><h3>Regnskapsregisteret</h3><p>Resultat og balanse for de tre siste årene. ${LOCAL || PROXY ? 'Hentes direkte.' : 'Den publiserte siden viser et lagret utdrag for selskapene i topplistene, fordi registeret ikke kan kalles direkte fra nettleseren.'}</p></div>
     <div class="rv"><span>03</span><h3>Topplister</h3><p>Alle ${TMETA ? nf.format(TMETA.selskaper) + ' ' : ''}norske selskaper med regnskap i Regnskapsregisteret${TMETA ? `, hentet ${fmtDate(TMETA.generert)}` : ''}, lagret i en egen database. Regnskap i utenlandsk valuta er regnet om til kroner med Norges Banks årssnitt, og åpenbare feil i registeret (som beløp oppgitt i feil enhet) er rettet eller tatt ut.</p></div>
     <div class="rv"><span>04</span><h3>Eierskap</h3><p>${REG.meta ? `Aksjonærregisteret fra Skatteetaten for ${[...REG.meta.tidligere].reverse().join(', ')} og ${REG.meta.år}: ${nf.format(REG.meta.selskaper)} selskaper og ${nf.format(REG.meta.personer)} personer. For personer vises navn, fødselsår og bosted, ikke postnummer.` : 'Aksjonærregisteret fra Skatteetaten. Eierdataene kunne ikke hentes akkurat nå.'}</p></div>
   </div></div></section>`;

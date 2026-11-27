@@ -2,7 +2,7 @@
 //   GET /regnskap/{orgnr}  Regnskapsregisteret sender ikke CORS-headere, så nettleseren kan ikke kalle det direkte.
 //                          Svaret caches i ett døgn.
 //   GET /topp?liste=...    Topplister fra D1-databasen «klover» (bygget med scripts/bygg_database.py).
-//   GET /eiere/meta, /eiere/{orgnr}, /eierskap/{id}, /personsok?q=..., /utbytte?by=...
+//   GET /eiere/meta, /eiere/{orgnr}, /eierskap/{id}, /personsok?q=...
 //                          Aksjonærregisteret fra D1-databasen «klover-eiere» (scripts/bygg_eierdatabase.py).
 //                          Bare når databasen er koblet til (binding EIERE); ellers svarer de 404 og siden bruker eksempeldata.
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
@@ -15,7 +15,6 @@ const LISTER = {
   lonnsom: { col: 'margin', dir: -1, where: 'ans > 0' },
   tjente: { col: 'net', dir: -1 },
   tapte: { col: 'net', dir: 1 },
-  utbytte: { col: 'div', dir: -1, where: 'div > 0' },
   ek: { col: 'eq', dir: -1 },
   oms: { col: 'rev', dir: -1 },
   vekst: { col: 'vekst', dir: -1 },
@@ -67,7 +66,7 @@ async function topp(url, env) {
   const [count, top] = await env.DB.batch([
     env.DB.prepare(`SELECT COUNT(*) AS total FROM aar WHERE ${w}`).bind(...args),
     env.DB.prepare(`SELECT t.*, s.navn, s.kommune, b.navn AS bransje FROM (
-        SELECT org, form, nace, ans, rev, op, net, eq, ass, div, ${val} AS v FROM aar WHERE ${w} ORDER BY v ${dir}, org LIMIT ?
+        SELECT org, form, nace, ans, rev, op, net, eq, ass, ${val} AS v FROM aar WHERE ${w} ORDER BY v ${dir}, org LIMIT ?
       ) t JOIN selskap s ON s.org = t.org LEFT JOIN naering b ON b.kode = t.nace ORDER BY t.v ${dir}, t.org`).bind(...args, n),
   ]);
   return json({ ar, total: count.results[0].total, rader: top.results }, 200, 'public, max-age=21600');
@@ -177,17 +176,6 @@ async function personsok(env, q, max) {
   return out;
 }
 
-// Toppliste: personer i en by som fikk mest utbytte fra holdingselskapene sine (scripts/bygg_utbytteliste.py)
-async function utbytte(env, by, n) {
-  if (!/^[a-zæøå]{2,30}$/.test(by)) return undefined;
-  const hid = await skjulte(env);
-  const [{ results }, meta] = await Promise.all([
-    env.EIERE.prepare('SELECT id, d FROM utbytte WHERE by = ? ORDER BY rang LIMIT ?').bind(by, n + hid.size).all(),
-    env.EIERE.prepare("SELECT v FROM meta WHERE k = 'utbytte'").first(),
-  ]);
-  return { ...(meta ? JSON.parse(meta.v) : {}), by, rader: results.filter(r => !hid.has(r.id)).slice(0, n).map(r => JSON.parse(r.d)) };
-}
-
 async function eiere(url, env) {
   const p = url.pathname;
   if (p === '/eiere/meta') {
@@ -199,14 +187,13 @@ async function eiere(url, env) {
   m = p.match(/^\/eierskap\/(\d{9}|[pf][0-9a-f]{10})$/);
   if (m) return { recs: await eierskapPost(env, m[1]) };
   if (p === '/personsok') return personsok(env, url.searchParams.get('q') || '', Math.min(Math.max(+url.searchParams.get('n') || 6, 1), 40));
-  if (p === '/utbytte') return utbytte(env, url.searchParams.get('by') || '', Math.min(Math.max(+url.searchParams.get('n') || 10, 1), 50));
   return undefined;
 }
 
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
-    const isEier = /^\/(eiere|eierskap|personsok|utbytte)(\/|$)/.test(url.pathname);
+    const isEier = /^\/(eiere|eierskap|personsok)(\/|$)/.test(url.pathname);
     if (req.method === 'OPTIONS') return new Response(null, { headers: isEier ? eierHeaders(req) : CORS });
     if (req.method !== 'GET') return new Response('Ikke funnet', { status: 404, headers: CORS });
     if (isEier) {
