@@ -571,22 +571,15 @@ const slow = (promise, ms, fn) => { const t = setTimeout(fn, ms); return promise
 
 // ---------- Utbyttelisten per by (#/lister) ----------
 const UTB_BYER = [['trondheim', 'Trondheim'], ['bergen', 'Bergen'], ['oslo', 'Oslo']];
-// Utbyttelistene per by bygger på aksjonærregisteret og finnes bare lokalt (scripts/build_lister.py --bare-utbytte --by <By>)
+// Utbyttelisten per by: de 50 øverste ligger i eierdatabasen (scripts/bygg_utbytteliste.py) og hentes fra Workeren
 const UTB = new Map();
-const loadUtb = by => { if (!UTB.has(by)) UTB.set(by, LOCAL ? getJSON(`data/aksjonaerregister/lister/utbytte-${by}.json`) : Promise.resolve(null)); return UTB.get(by); };
-function utbTop(D, n, Y = '2025') {
-  if (!D) return null;
-  // Forsvinner nesten hele egenkapitalen (under 10 % igjen), er det som regel en fusjon eller fisjon – ikke utbytte
-  const restructured = h => { const a = h.år?.[String(+Y - 1)]?.eq, b = h.år?.[Y]?.eq; return a > 1e6 && b != null && b < a * 0.1; };
-  return D.personer.map(p => {
-    const parts = p.h.filter(h => !restructured(h)).map(h => ({ h, v: h.år?.[Y]?.div != null ? h.år[Y].div * h.pct / 100 : null })).filter(x => x.v > 0);
-    return { p, parts, v: parts.reduce((s, x) => s + x.v, 0) };
-  }).filter(x => x.v > 0).sort((a, b) => b.v - a.v).slice(0, n).map(({ p, parts, v }) => {
-    const top = parts.sort((a, b) => b.v - a.v)[0];
-    return { href: p.key ? `#/person/${p.key}` : `#/selskap/${top.h.org}`, name: nice(p.navn), val: kr(v),
-      sub: `f. ${p.yr} · via ${esc(nice(top.h.navn))} (${pcp(top.h.pct)})${parts.length > 1 ? ` + ${parts.length - 1} til` : ''}` };
-  });
-}
+const loadUtb = by => {
+  if (!UTB.has(by)) UTB.set(by, getJSON(`${REG_API}/utbytte?by=${by}&n=50`).then(d => { if (!d?.rader) UTB.delete(by); return d; }));
+  return UTB.get(by);
+};
+// Rad: [nøkkel, navn, fødselsår, sted, anslått utbytte, største holdingselskap, navn, andel, antall selskaper]
+const utbTop = (D, n) => D?.rader?.slice(0, n).map(r => ({ href: `#/person/${r[0]}`, name: nice(r[1]), val: kr(r[4]),
+  sub: `f. ${r[2]} · via ${esc(nice(r[6]))} (${pcp(r[7])})${r[8] > 1 ? ` + ${r[8] - 1} til` : ''}` })) ?? null;
 const hlRows = (rows, empty = 'Ingen treff.') => (rows?.length ? `<ol class="irows">${rows.map((r, i) => `<li><a class="irow" href="${r.href}"><span class="ir-n num">${i + 1}</span><span class="ir-t"><b>${esc(r.name)}</b><span>${r.sub}</span></span><span class="ir-v num">${r.val}</span></a></li>`).join('')}</ol>`
   : `<p class="muted ir-empty">${rows ? empty : 'Klarte ikke å hente listen akkurat nå.'}</p>`);
 // ---------- Forside ----------
@@ -696,14 +689,14 @@ async function listIdeas() {
   V.innerHTML = `<section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap">
     <div class="crumb"><a href="#/topplister">Topplister</a><span>/</span><span>Nye lister</span></div>
     <h1 class="h1" style="font-size:clamp(40px,5.8vw,84px)">Nye topplister</h1>
-    <p class="lead" style="margin-top:18px">${LOCAL ? 'Fire' : 'Tre'} nye lister med regnskapene for ${Y}, for alle norske aksjeselskaper i bransjen.</p></div></section>
+    <p class="lead" style="margin-top:18px">Fire nye lister med regnskapene for ${Y}, for alle norske aksjeselskaper i bransjen og for personer med holdingselskap.</p></div></section>
   <div class="wrap" style="padding-bottom:110px"><div class="ideas">
     ${card('i-kons', 'Oslo · Konsulentselskaper', 'Mest og minst lønnsomme per ansatt', `Driftsresultat delt på antall ansatte, ${Y}. Bedriftsrådgivning og IT-konsulenter med minst 5 ansatte og 5 mill. kr i omsetning.`, seg('kons', [['mest', 'Mest lønnsomme'], ['minst', 'Minst lønnsomme']]), '<span data-tot="kons"></span> Antall ansatte er det Enhetsregisteret oppgir i dag.')}
-    ${LOCAL ? card('i-utb', `${byNavn(st.by)} · Personer`, 'Hvem tok mest utbytte fra holdingselskapet sitt?', `Anslått utbytte for ${Y} fra holdingselskaper der personen eier minst 20 %, ganget med eierandelen.`, `<div class="idea-tag">Bare lokalt · aksjonærregisteret</div>${LOCAL ? seg('by', UTB_BYER) : ''}`, 'Utbyttet er anslått fra regnskapet: årsresultat minus økningen i opptjent egenkapital. Holdingselskaper er her selskaper med «holding» i navnet. Selskaper der nesten hele egenkapitalen forsvant (som regel fusjon eller fisjon) er tatt ut. Byen er postnumrene i kommunen.') : ''}
+    ${card('i-utb', `${byNavn(st.by)} · Personer`, 'Hvem tok mest utbytte fra holdingselskapet sitt?', `Anslått utbytte for ${Y} fra holdingselskaper der personen eier minst 20 %, ganget med eierandelen.`, `<div class="idea-tag">Anslag fra regnskapene</div>${seg('by', UTB_BYER)}`, 'Utbyttet er anslått fra regnskapet: årsresultat minus økningen i opptjent egenkapital. Holdingselskaper er her selskaper med «holding» i navnet. Selskaper der nesten hele egenkapitalen forsvant (som regel fusjon eller fisjon) er tatt ut. Byen er postnumrene i kommunen.')}
     ${card('i-adv', 'Hele landet · Advokatselskaper', `Advokatselskapene som tjente mest i ${Y}`, 'Juridisk tjenesteyting med minst 5 ansatte. Mange advokatfirmaer er organisert som DA eller ANS og har ikke offentlig regnskap – de er ikke med.', seg('adv', [['net', 'Årsresultat'], ['rev', 'Omsetning'], ['per', 'Per ansatt']]), '<span data-tot="adv"></span>')}
     ${card('i-regn', 'Oslo · Regnskapsbyråer', `Høyest driftsmargin i ${Y}`, 'Driftsresultat delt på omsetning. Regnskapsføring og bokføring med ansatte og minst 3 mill. kr i omsetning.', '', '<span data-tot="regn"></span>')}
   </div>
-  <p class="note">${ic('info')} <span>Kilder: Enhetsregisteret og Regnskapsregisteret (åpne data, NLOD)${LOCAL ? ', og aksjonærregisteret fra Skatteetaten (lokalt)' : ''}. Bare aksjeselskaper (AS og ASA) er med. Bransjekodene er de nye fra SSB (SN2025).</span></p></div>`;
+  <p class="note">${ic('info')} <span>Kilder: Enhetsregisteret og Regnskapsregisteret (åpne data, NLOD), og aksjonærregisteret fra Skatteetaten. Bare aksjeselskaper (AS og ASA) er med. Bransjekodene er de nye fra SSB (SN2025).</span></p></div>`;
   starField($('.ph .field'), { mode: 'breathe', sp: 11 });
   $$('.ideas [data-thumb]').forEach(thumb);
   const ids = { kons: 'i-kons', adv: 'i-adv', regn: 'i-regn', by: 'i-utb' };
@@ -711,15 +704,14 @@ async function listIdeas() {
   const load = async k => {
     const want = k === 'by' ? st.by : st[k], body = $(`#${ids[k]} .idea-b`);
     if (!body) return;
-    if (k === 'by' && !LOCAL) { body.innerHTML = '<p class="muted ir-empty">Listen bygger på aksjonærregisteret, som bare finnes i den lokale versjonen.</p>'; return; }
-    const job = k === 'by' ? loadUtb(st.by).then(D => ({ rows: utbTop(D, 10, Y) })) : topp({ ...Q[k](), år: Y }).then(d => ({ rows: R[k](d), total: d?.total }));
+    const job = k === 'by' ? loadUtb(st.by).then(D => ({ rows: utbTop(D, 10) })) : topp({ ...Q[k](), år: Y }).then(d => ({ rows: R[k](d), total: d?.total }));
     const res = await slow(job, 120, () => { if ((k === 'by' ? st.by : st[k]) === want) body.innerHTML = skelRows(10); });
     if ((k === 'by' ? st.by : st[k]) !== want || !body.isConnected) return;
     body.innerHTML = hlRows(res.rows);
     const tot = $(`[data-tot="${k}"]`);
     if (tot && res.total != null) tot.textContent = `${nf.format(res.total)} selskaper med regnskap.`;
   };
-  ['kons', 'adv', 'regn', ...(LOCAL ? ['by'] : [])].forEach(load);
+  ['kons', 'by', 'adv', 'regn'].forEach(load);
   onV('click', e => {
     const b = e.target.closest('.idea [data-v]'); if (!b) return;
     const box = b.closest('[data-idea]'), k = box.dataset.idea; if (st[k] === b.dataset.v) return;
@@ -745,7 +737,7 @@ async function toplists(q) {
   V.innerHTML = `<div class="tl-page">
   <section class="ph"><canvas class="field" aria-hidden="true"></canvas><div class="wrap"><div class="lab nl">Topplister</div><div id="tl-h"></div></div></section>
   <div class="wrap" style="padding-bottom:80px">
-    <a class="idea-ban glass" href="#/lister"><span><b>Nytt:</b> ${LOCAL ? 'Fire nye lister – konsulenter per ansatt, advokater, regnskapsbyråer og utbytte' : 'Tre nye lister – konsulenter per ansatt, advokater og regnskapsbyråer'}</span><span class="eb-ar" aria-hidden="true">${ic('arrow')}</span></a>
+    <a class="idea-ban glass" href="#/lister"><span><b>Nytt:</b> Fire nye lister – konsulenter per ansatt, advokater, regnskapsbyråer og utbytte</span><span class="eb-ar" aria-hidden="true">${ic('arrow')}</span></a>
     <div class="lists" role="tablist" aria-label="Velg toppliste">${PRESETS.map(x => `<button class="chip" role="tab" data-l="${x.k}">${esc(x.t)}</button>`).join('')}</div>
     <div class="tb glass" id="tb"></div>
     <div class="fpanel glass" id="fp" hidden></div>
@@ -1533,6 +1525,7 @@ function privacy() {
     ${sec('Hvem er ansvarlig', `<p>Pesom Holding AS (org.nr 923 729 674) er behandlingsansvarlig for personopplysningene på Kløver. Spørsmål om personvern sender du til <a class="lnk" href="${PERSONVERN_MAILTO}">${esc(PERSONVERN_EPOST)}</a>.</p>`)}
     ${sec('Hvilke opplysninger vi viser', `<p>For personer som eier aksjer i norske aksjeselskaper viser vi navn, fødselsår, poststed, antall aksjer, eierandel og endringen fra året før. Eierandeler gjennom holdingselskaper regnes ut fra de samme opplysningene.</p>
       <p>For personer med roller i selskaper, som styremedlem eller daglig leder, viser vi navn, fødselsår og rolle.</p>
+      <p>I noen byer viser vi også hvilke personer som fikk mest utbytte fra holdingselskapene sine. Utbyttet er et anslag: selskapets utbytte fra regnskapet, ganget med personens eierandel. Bare de 50 øverste i hver by er med.</p>
       <p>Vi viser ikke adresse, postnummer, fødselsdato eller fødselsnummer.</p>`)}
     ${sec('Hvor opplysningene kommer fra', `<p>Eieropplysningene kommer fra aksjonærregisteret hos Skatteetaten, og gjelder eierskap per 31. desember hvert år. Aksjeeierboken er offentlig, og Skatteetaten gjør opplysningene tilgjengelige for alle.</p>
       <p>Roller, selskapsopplysninger og regnskap kommer fra Brønnøysundregistrene (åpne data, NLOD).</p>`)}
