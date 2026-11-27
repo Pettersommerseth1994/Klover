@@ -1,6 +1,6 @@
 'use strict';
 /* Kløver – prototype. Åpne data fra Brønnøysundregistrene (NLOD) + eksempeldata for eierskap.
-   Designsystem: Stetinden Studio (Inter Tight, #EF7140, glass, stjernefelt). */
+   Designsystem: Stetinden Studio (Inter Tight, aksent #EBECA0, glass, stjernefelt). */
 
 // Adressen til Cloudflare-proxyen for Regnskapsregisteret (se proxy/). Tom = bruk lagret utdrag.
 const PROXY = 'https://klover-proxy.klover.workers.dev';
@@ -90,7 +90,7 @@ const STAR = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 37 32 3
 const twinkles = pts => pts.map(([x, y, s, d]) => `<span class="tw" style="left:${x}%;top:${y}%;--s:${s}px;animation-delay:${d}s" aria-hidden="true">${STAR}</span>`).join('');
 
 // Stjernefelt (samme tegneprimitiv som Stetinden)
-const RM = matchMedia('(prefers-reduced-motion:reduce)').matches, G = '#cfcfcf', O = '#EF7140';
+const RM = matchMedia('(prefers-reduced-motion:reduce)').matches, G = '#cfcfcf', O = '#EBECA0';
 function star(cx, x, y, r, c) {
   const L = r * 2.3, w = L * .2; cx.fillStyle = c; cx.beginPath();
   cx.moveTo(x, y - L); cx.lineTo(x + w, y); cx.lineTo(x, y + L); cx.lineTo(x - w, y); cx.closePath();
@@ -141,7 +141,7 @@ function constellation(cv) {
       const d = Math.hypot(Pp[i][0] - Pp[j][0], Pp[i][1] - Pp[j][1]);
       if (d < D) { cx.strokeStyle = `rgba(130,135,145,${(1 - d / D) * .5})`; cx.beginPath(); cx.moveTo(...Pp[i]); cx.lineTo(...Pp[j]); cx.stroke(); }
     }
-    if (f.mx != null) Pp.forEach(p => { const d = Math.hypot(p[0] - f.mx, p[1] - f.my); if (d < 180) { cx.strokeStyle = `rgba(239,113,64,${(1 - d / 180) * .85})`; cx.beginPath(); cx.moveTo(...p); cx.lineTo(f.mx, f.my); cx.stroke(); } });
+    if (f.mx != null) Pp.forEach(p => { const d = Math.hypot(p[0] - f.mx, p[1] - f.my); if (d < 180) { cx.strokeStyle = `rgba(235,236,160,${(1 - d / 180) * .85})`; cx.beginPath(); cx.moveTo(...p); cx.lineTo(f.mx, f.my); cx.stroke(); } });
     if (!RM && t - last > 1.3) { last = t; const i = Math.floor(rnd() * Pp.length); let b = -1, bd = D; Pp.forEach((p, j) => { const d = Math.hypot(p[0] - Pp[i][0], p[1] - Pp[i][1]); if (j !== i && d < bd) { bd = d; b = j; } }); if (b >= 0) pulses.push({ a: i, b, t0: t }); }
     pulses = pulses.filter(p => t - p.t0 < 1.7);
     pulses.forEach(p => { const k = (t - p.t0) / 1.7, a = Pp[p.a], b = Pp[p.b]; star(cx, a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, 1.4, O); });
@@ -573,7 +573,7 @@ async function home() {
     </div>
   </div></section>
   <section class="sec"><div class="wrap feat">
-    <div><div class="lab">Eiersøk</div><h2 class="h2 rv">Se hvem som <span style="color:var(--ac)">egentlig</span> eier.</h2>
+    <div><div class="lab">Eiersøk</div><h2 class="h2 rv">Se hvem som <span style="color:var(--mut)">egentlig</span> eier.</h2>
       <p class="lead rv" style="margin-top:20px">Søk på en person og følg eierskapet gjennom holdingselskapene. Vi regner ut den reelle andelen for deg: eier du 50 % av et selskap som eier 50 % av et annet, eier du 25 %.</p>
       <div class="rv" style="margin-top:28px;display:flex;gap:12px;flex-wrap:wrap"><a class="btn solid" href="#/person/p-petter" data-expl>Se eksempelet ${ic('arrow')}</a><a class="btn ghost" href="#/eiere">Slik fungerer eiersøk</a></div></div>
     <div class="feat-vis rv"><canvas aria-hidden="true"></canvas></div>
@@ -951,7 +951,7 @@ function watchFin() {
 document.fonts?.addEventListener?.('loadingdone', () => fitFin());
 document.fonts?.ready.then(fitFin);
 
-const OWN_C = ['#EF7140', '#111', '#6b6f76', '#cfcfcf', '#9a9ea4', '#F7A27A'];
+const OWN_C = ['#EBECA0', '#111', '#6b6f76', '#cfcfcf', '#9a9ea4', '#C9CB72'];
 const pcp = v => (v == null ? '–' : v < .01 ? '< 0,01 %' : pc(v, v < 1 ? 2 : 1));
 function ownershipBlock(own, name) {
   const badge = own.src === 'reg' ? `<span class="src-tag">Aksjonærregisteret ${own.year}</span>` : own.src === 'demo' ? '<span class="demo">Eksempeldata</span>' : '';
@@ -1224,7 +1224,7 @@ async function company(id) {
 // ---------- Eierkartet: alt en person eier, og samlet andel gjennom alle ledd ----------
 // En person kan eie samme selskap gjennom flere holdingselskaper. Hver vei ganges ut (100 % × 60 % = 60 %),
 // og veiene legges sammen (60 % + 15 % = 75 %). Streken blir tykkere jo mer av selskapet som havner hos personen.
-const PATH_C = ['#EF7140', '#111111', '#F4A27C', '#6b6f76', '#b9bcc0'];
+const PATH_C = ['#C8C95E', '#111111', '#E2E393', '#6b6f76', '#b9bcc0'];
 function ownTarget(agg, id) {
   const a = agg.get(id);
   if (!a) return null;
@@ -1463,7 +1463,7 @@ async function owners() {
   const exHref = reg ? await examplePersonHref() : '';
   V.innerHTML = `
   <section class="ph" style="padding-bottom:80px"><canvas class="field" aria-hidden="true"></canvas><div class="wrap">
-    <div class="lab nl">Eiersøk</div><h1 class="h1" style="font-size:clamp(40px,6vw,92px)">Hvem eier<br><span style="color:var(--ac)">hva</span>?</h1>
+    <div class="lab nl">Eiersøk</div><h1 class="h1" style="font-size:clamp(40px,6vw,92px)">Hvem eier<br><span style="color:var(--mut)">hva</span>?</h1>
     <p class="lead" style="margin:22px 0 30px">${reg ? `Søk blant ${nf.format(reg.personer)} personer og ${nf.format(reg.selskaper)} selskaper i aksjonærregisteret for ${reg.år}. Vi følger eierskapet gjennom holdingselskapene og regner ut den reelle andelen.` : 'Søk på en person og se alt de eier – direkte og gjennom holdingselskaper. Vi regner ut den reelle andelen for deg.'}</p>
     <div id="os" style="max-width:620px"></div></div></section>
   <section class="sec" style="padding-top:40px"><div class="wrap">
