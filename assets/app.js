@@ -280,7 +280,8 @@ function regGet(kind, id) {
   const m = kind === 'eiere' ? REG.own : REG.hold;
   if (!m.has(id)) {
     m.set(id, getJSON(`${REG_API}/${kind}/${id}`).then(d => {
-      for (const [k, v] of Object.entries(d?.recs || {})) if (k !== id && !m.has(k)) m.set(k, Promise.resolve(v));
+      if (!d) { m.delete(id); return null; } // feil eller for mange oppslag: prøv igjen neste gang
+      for (const [k, v] of Object.entries(d.recs || {})) if (k !== id && !m.has(k)) m.set(k, Promise.resolve(v));
       return d?.recs?.[id] || null;
     }));
   }
@@ -295,7 +296,10 @@ async function regSearchPeople(q, max = 6) {
   const toks = normTok(q);
   if (!toks.some(t => t.length >= 3) || !(await regMeta())) return [];
   const k = `${toks.join(' ')}|${max}`;
-  if (!REG.sok.has(k)) REG.sok.set(k, getJSON(`${REG_API}/personsok?${new URLSearchParams({ q: toks.join(' '), n: max })}`).then(d => (Array.isArray(d) ? d : [])));
+  if (!REG.sok.has(k)) REG.sok.set(k, getJSON(`${REG_API}/personsok?${new URLSearchParams({ q: toks.join(' '), n: max })}`).then(d => {
+    if (!Array.isArray(d)) { REG.sok.delete(k); return []; }
+    return d;
+  }));
   return REG.sok.get(k);
 }
 const regPersonItem = r => ({ sec: 'Personer', href: `#/person/${r[0]}`, title: nice(r[1]), kind: 'pe',
@@ -315,7 +319,7 @@ async function regUltimate(org) {
     for (const o of rec.o) {
       const m = mult * o[6] / 100;
       if (m < 0.0005) continue;
-      const self = o[1] === org, nm = self ? 'Egne aksjer' : nice(o[2]);
+      const self = o[1] === org, nm = self ? 'Egne aksjer' : o[0] === 'h' ? 'Skjult person' : nice(o[2]);
       if (o[0] === 'c' && !self && !seen.has(o[1]) && depth < 6 && budget > 0) {
         budget--;
         if (await walk(o[1], m, [...via, nm], new Set([...seen, o[1]]), depth + 1)) continue;
@@ -355,7 +359,7 @@ async function ownership(id) {
     const base = { src: 'reg', year: REG.meta.år, prevYear: REG.meta.tidligere?.[0] };
     if (!rec && !hold) return { ...base, none: true, direct: [], ult: [], holds: [] };
     return { ...base, total: rec?.t, rest: rec?.x,
-      direct: (rec?.o || []).map(o => ({ type: o[1] === id ? 'self' : o[0], id: o[1], name: o[1] === id ? 'Egne aksjer' : nice(o[2]), yr: o[3], place: nice(o[4] || ''), shares: o[5], pct: o[6], prev: o[7], href: ownerHref(o[0], o[1], id) })),
+      direct: (rec?.o || []).map(o => ({ type: o[1] === id ? 'self' : o[0], id: o[1], name: o[1] === id ? 'Egne aksjer' : o[0] === 'h' ? 'Skjult person' : nice(o[2]), yr: o[3], place: nice(o[4] || ''), shares: o[5], pct: o[6], prev: o[7], href: ownerHref(o[0], o[1], id) })),
       ult: rec ? await regUltimate(id) : [],
       holds: (hold?.h || []).map(h => ({ id: h[0], name: nice(h[1]), shares: h[2], pct: h[3], href: `#/selskap/${h[0]}` })), holdsN: hold?.n || 0 };
   }
@@ -968,7 +972,7 @@ function ownershipBlock(own, name) {
   const U = own.ult.filter(u => u.type !== 'rest'), rest = own.ult.find(u => u.type === 'rest');
   const top = U.slice(0, 6), other = U.slice(6).reduce((s, u) => s + u.pct, 0) + (rest?.pct || 0);
   const via = u => (u.paths || []).map(p => (p.via.length ? `${pcp(p.pct)} via ${p.via.map(esc).join(' → ')}` : `${pcp(p.pct)} direkte`)).join(' · ');
-  const kind = u => (u.type === 'f' ? 'Utenlandsk eier · ' : u.type === 'self' ? 'Selskapets egne aksjer · ' : u.type === 'c' ? 'Ingen eiere i registeret · ' : '');
+  const kind = u => (u.type === 'f' ? 'Utenlandsk eier · ' : u.type === 'self' ? 'Selskapets egne aksjer · ' : u.type === 'c' ? 'Ingen eiere i registeret · ' : u.type === 'h' ? 'Har bedt om å ikke bli vist · ' : '');
   const row = (u, i) => { const t = u.href ? 'a' : 'div';
     return `<${t} class="lg-row" ${u.href ? `href="${u.href}"` : ''}><span class="sw" style="background:${OWN_C[i % OWN_C.length]}"></span><div><b>${esc(u.name)}</b><div class="via">${kind(u)}${via(u)}</div></div><span class="pc num">${pcp(u.pct)}</span></${t}>`; };
   const chg = d => {
@@ -977,8 +981,8 @@ function ownershipBlock(own, name) {
     const x = d.pct - d.prev;
     return Math.abs(x) < .05 ? '' : `<span class="${x > 0 ? 'up' : 'dn'}">${trend(x > 0)}${dec(Math.abs(x), 1)} pp</span>`;
   };
-  const sub = d => (d.type === 'p' ? [d.yr && `f. ${d.yr}`, d.place].filter(Boolean).join(' · ') : d.type === 'c' ? `Org.nr ${fmtOrg(d.id)}` : d.type === 'f' ? `Utenlandsk · ${esc(d.place)}` : d.type === 'self' ? 'Selskapets egne aksjer' : '');
-  const tr = d => `<tr ${d.href ? `data-href="${d.href}"` : ''}><td><span class="who"><span class="av ${d.type === 'p' ? 'pe' : ''}">${esc(ini(d.name))}</span><span><b>${esc(d.name)}</b><small>${sub(d)}</small></span></span></td><td class="sh num">${d.shares != null ? nf.format(d.shares) : ''}</td><td class="num">${pcp(d.pct)}</td><td class="ch">${chg(d)}</td></tr>`;
+  const sub = d => (d.type === 'p' ? [d.yr && `f. ${d.yr}`, d.place].filter(Boolean).join(' · ') : d.type === 'c' ? `Org.nr ${fmtOrg(d.id)}` : d.type === 'f' ? `Utenlandsk · ${esc(d.place)}` : d.type === 'self' ? 'Selskapets egne aksjer' : d.type === 'h' ? 'Har bedt om å ikke bli vist' : '');
+  const tr = d => `<tr ${d.href ? `data-href="${d.href}"` : ''}><td><span class="who"><span class="av ${d.type === 'p' || d.type === 'h' ? 'pe' : ''}">${esc(ini(d.name))}</span><span><b>${esc(d.name)}</b><small>${sub(d)}</small></span></span></td><td class="sh num">${d.shares != null ? nf.format(d.shares) : ''}</td><td class="num">${pcp(d.pct)}</td><td class="ch">${chg(d)}</td></tr>`;
   const list = (rows, n) => `<tbody>${rows.slice(0, n).map(tr).join('')}</tbody>${rows.length > n ? `<tbody class="more-own" hidden>${rows.slice(n).map(tr).join('')}</tbody>` : ''}`;
   const more = (rows, n, total) => (rows.length > n ? `<button class="lnk" type="button" data-more-own data-label="Vis alle ${nf.format(total || rows.length)}" style="font-size:13px;margin-top:10px">Vis alle ${nf.format(total || rows.length)}</button>` : '');
   const hdr = `<thead><tr><th>Eier</th><th class="sh">Aksjer</th><th>Andel</th><th class="ch">${own.src === 'reg' && own.prevYear ? `Fra ${own.prevYear}` : ''}</th></tr></thead>`;
@@ -1510,7 +1514,7 @@ function privacy() {
       <p>Roller, selskapsopplysninger og regnskap kommer fra Brønnøysundregistrene (åpne data, NLOD).</p>`)}
     ${sec('Hvorfor, og med hvilket grunnlag', `<p>Formålet er å gjøre det enkelt å se hvem som eier og styrer norske selskaper. Det er nyttig for næringslivet, for pressen og for alle som vil forstå hvem som står bak et selskap.</p>
       <p>Grunnlaget er berettiget interesse etter personvernforordningen artikkel 6 nr. 1 bokstav f. Vi har vurdert at interessen i åpenhet om eierskap veier tyngre enn ulempen for den enkelte, fordi opplysningene allerede er offentlige og vi bare viser det som trengs. Du kan be om å få vurderingen.</p>`)}
-    ${sec('Slik begrenser vi bruken', `<ul><li>Du kan slå opp ett selskap eller én person om gangen. Det går ikke an å laste ned hele registeret fra Kløver.</li><li>Personsøket krever minst tre tegn og viser et begrenset antall treff.</li><li>Persondataene ligger adskilt fra de andre dataene og kan slettes samlet.</li></ul>`)}
+    ${sec('Slik begrenser vi bruken', `<ul><li>Du kan slå opp ett selskap eller én person om gangen. Det går ikke an å laste ned hele registeret fra Kløver.</li><li>Personsøket krever minst tre tegn og viser et begrenset antall treff.</li><li>Antall oppslag per besøkende er begrenset, så registeret ikke kan hentes ut automatisk.</li><li>Persondataene ligger adskilt fra de andre dataene og kan slettes samlet.</li></ul>`)}
     ${sec('Hvem som behandler opplysningene for oss', `<p>Cloudflare lagrer og leverer eieropplysningene for oss, etter Cloudflares databehandleravtale. Databasen ligger i EU. Når opplysningene leveres til besøkende, kan Cloudflare behandle dem utenfor EØS, og bruker da EU–US Data Privacy Framework.</p>
       <p>GitHub driver selve nettsiden, men har ikke eieropplysningene. Vi selger ikke opplysninger.</p>`)}
     ${sec('Hvor lenge', `<p>Vi viser de tre siste årene fra aksjonærregisteret. Når et nytt år blir tilgjengelig, i mai, erstatter det det eldste, og opplysninger som ikke lenger er med, slettes.</p>`)}

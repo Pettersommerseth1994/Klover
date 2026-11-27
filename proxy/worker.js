@@ -96,7 +96,24 @@ const eierHeaders = req => {
 };
 // «0784 OSLO» -> «OSLO»: stedet er nok til å skille personer med samme navn
 const sted = s => (s || '').replace(/^\d{4}\s+/, '');
-const tidyOwners = rec => ({ ...rec, o: rec.o.map(o => (o[0] === 'p' ? [o[0], o[1], o[2], o[3], sted(o[4]), ...o.slice(5)] : o)) });
+// Personer som har bedt om å ikke vises (tabellen skjult, se scripts/skjul_person.py). Lastes på nytt hvert minutt.
+let SKJULT = { ids: new Set(), t: 0 };
+async function skjulte(env) {
+  if (Date.now() - SKJULT.t > 60_000) {
+    try {
+      const { results } = await env.EIERE.prepare('SELECT id FROM skjult').all();
+      SKJULT = { ids: new Set(results.map(r => r.id)), t: Date.now() };
+    } catch (e) {
+      console.error('skjult', e?.message || e); // tabellen mangler: ingen skjult
+      SKJULT = { ids: SKJULT.ids, t: Date.now() };
+    }
+  }
+  return SKJULT.ids;
+}
+// Skjulte personer står igjen som «Skjult person» med andelen, så summen av eierne stemmer
+const tidyOwners = (rec, hid) => ({ ...rec, o: rec.o.map(o => (o[0] !== 'p' ? o
+  : hid.has(o[1]) ? ['h', '', 'Skjult person', '', '', ...o.slice(5)]
+  : [o[0], o[1], o[2], o[3], sted(o[4]), ...o.slice(5)])) });
 const tidyHold = rec => (rec.i?.[0] === 'p' ? { ...rec, i: [rec.i[0], rec.i[1], rec.i[2], sted(rec.i[3])] } : rec);
 const normTok = s => String(s || '').toLowerCase().replace(/[^a-zæøåäöü0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
 
@@ -113,13 +130,13 @@ async function many(env, table, col, ids) {
 
 // Selskapet og eierne oppover i kjeden (holdingselskaper), så siden kan regne ut endelige eiere uten nye oppslag
 async function eierePost(env, org) {
-  const recs = {}, seen = new Set([org]);
+  const recs = {}, seen = new Set([org]), hid = await skjulte(env);
   let level = [org];
   for (let depth = 0; depth < 7 && level.length && Object.keys(recs).length < 120; depth++) {
     const got = await many(env, 'eiere', 'org', level);
     const next = [];
     for (const [k, rec] of Object.entries(got)) {
-      recs[k] = tidyOwners(rec);
+      recs[k] = tidyOwners(rec, hid);
       for (const o of rec.o) if (o[0] === 'c' && !seen.has(o[1])) { seen.add(o[1]); next.push(o[1]); }
     }
     level = next.slice(0, 120 - Object.keys(recs).length);
@@ -129,6 +146,7 @@ async function eierePost(env, org) {
 
 // Eieren og selskapene nedover i kjeden, til eiertreet på personsiden
 async function eierskapPost(env, id) {
+  if ((await skjulte(env)).has(id)) return {};
   const recs = {}, seen = new Set([id]);
   let level = [id];
   for (let depth = 0; depth < 7 && level.length && Object.keys(recs).length < 200; depth++) {
@@ -150,9 +168,9 @@ async function personsok(env, q, max) {
   if (key.length < 3) return [];
   const { results } = await env.EIERE.prepare('SELECT id, navn, yr, sted, n FROM navn WHERE tok >= ? AND tok < ? ORDER BY n DESC LIMIT 2000')
     .bind(key, key + '\uffff').all();
-  const out = [], seen = new Set();
+  const out = [], seen = new Set(), hid = await skjulte(env);
   for (const r of results) {
-    if (seen.has(r.id)) continue;
+    if (seen.has(r.id) || hid.has(r.id)) continue;
     const nt = normTok(r.navn);
     if (toks.every(t => nt.some(x => x.startsWith(t)))) { seen.add(r.id); out.push([r.id, r.navn, r.yr, sted(r.sted), r.n]); if (out.length >= max) break; }
   }
@@ -182,6 +200,12 @@ export default {
     if (isEier) {
       const h = eierHeaders(req);
       if (!env.EIERE) return new Response('Ikke funnet', { status: 404, headers: h });
+      // Grense per IP-adresse (binding EIER_GRENSE), så registeret ikke kan lastes ned automatisk
+      if (env.EIER_GRENSE) {
+        const { success } = await env.EIER_GRENSE.limit({ key: req.headers.get('CF-Connecting-IP') || 'ukjent' });
+        if (!success) return new Response(JSON.stringify({ feil: 'For mange oppslag. Vent et minutt og prøv igjen.' }),
+          { status: 429, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '60', ...h } });
+      }
       // Svaret caches uten CORS-headere (de avhenger av hvem som spør) og får dem lagt på her
       const cache = caches.default, key = new Request(url.toString());
       const hit = await cache.match(key);
@@ -189,7 +213,8 @@ export default {
       let body;
       try { body = await eiere(url, env); } catch (e) { console.error('eiere', url.pathname, e?.message || e); return json({ feil: 'Databasen svarte ikke' }, 500); }
       if (body === undefined) return new Response('Ikke funnet', { status: 404, headers: h });
-      const res = new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
+      // Én time, så en person som skjules forsvinner fra svarene innen en time
+      const res = new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
       ctx.waitUntil(cache.put(key, res.clone()));
       return new Response(res.body, { headers: { ...Object.fromEntries(res.headers), ...h } });
     }

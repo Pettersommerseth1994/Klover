@@ -12,6 +12,7 @@ Tabeller:
     eiere     aksjonærene i hvert selskap (JSON, samme form som den lokale indeksen)
     eierskap  hva hver eier (selskap eller person) eier (JSON)
     navn      personsøk: én rad per ord i navnet, så søket kan slå opp på begynnelsen av et ord
+    skjult    personer som har bedt om å ikke vises (fylles med scripts/skjul_person.py, beholdes ved ny import)
 
 Importer lokalt (for «wrangler dev»), én fil om gangen:
     for f in data/aksjonaerregister/d1/*.sql; do npx wrangler d1 execute klover-eiere --local -c proxy/wrangler.dev.toml --file "$f"; done
@@ -35,6 +36,8 @@ CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 CREATE TABLE eiere (org TEXT PRIMARY KEY, d TEXT NOT NULL) WITHOUT ROWID;
 CREATE TABLE eierskap (id TEXT PRIMARY KEY, d TEXT NOT NULL) WITHOUT ROWID;
 CREATE TABLE navn (tok TEXT NOT NULL, id TEXT NOT NULL, navn TEXT NOT NULL, yr TEXT, sted TEXT, n INTEGER NOT NULL, PRIMARY KEY (tok, id)) WITHOUT ROWID;
+-- Personer som har bedt om å ikke vises (scripts/skjul_person.py). Slettes ikke når dataene bygges på nytt.
+CREATE TABLE IF NOT EXISTS skjult (id TEXT PRIMARY KEY, navn TEXT, yr TEXT, dato TEXT NOT NULL, grunn TEXT);
 """
 
 

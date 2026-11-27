@@ -14,3 +14,11 @@ remote = true  # «wrangler dev» bruker den ekte databasen
 binding = "EIERE"
 database_name = "klover-eiere"
 database_id = "09eb44e6-1a4e-4f0c-ba5e-675f42993cf0"
+
+# Grense på oppslag i eierdataene: 100 per minutt per IP-adresse (gjelder per Cloudflare-lokasjon)
+[[ratelimits]]
+name = "EIER_GRENSE"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 100
+  period = 60
